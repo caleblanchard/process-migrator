@@ -36,6 +36,7 @@
       "build/common/**/*",
       "build/nodejs/**/*"
     ],
+    "publish": null,
     "win": {
       "target": [
         "nsis",
