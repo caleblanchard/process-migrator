@@ -62,6 +62,7 @@ export function SetupPage({ onNext }: SetupPageProps) {
     sourceProcess, setSourceProcess,
     targetProcessName, setTargetProcessName,
     mode, setMode,
+    importFilePath, setImportFilePath,
   } = useMigrationStore();
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -195,8 +196,17 @@ export function SetupPage({ onNext }: SetupPageProps) {
     }
   };
 
-  const canProceed = source.isConnected && sourceProcess && 
-    (mode === 'export' || target.isConnected);
+  const handleChooseImportFile = async () => {
+    const result = await window.electronAPI.showOpenDialog({ defaultPath: 'process.json' });
+    
+    if (!result.canceled && result.filePath) {
+      setImportFilePath(result.filePath);
+    }
+  };
+
+  const canProceed = mode === 'import' 
+    ? target.isConnected && importFilePath  // Import needs target connection and file
+    : source.isConnected && sourceProcess && (mode === 'export' || target.isConnected);
 
   return (
     <div>
@@ -234,42 +244,64 @@ export function SetupPage({ onNext }: SetupPageProps) {
         </MessageBar>
       )}
 
-      {/* Source Connection */}
+      {/* Migration Mode Selection - Always visible */}
       <div className="card">
-        <div className="card-title">
-          Source Account
-          {source.isConnected && <Checkmark24Regular style={{ color: '#107c10', marginLeft: 8 }} />}
-        </div>
-        <div className="form-row">
-          <Field label="Organization URL" required>
-            <Input
-              placeholder="https://dev.azure.com/your-org"
-              value={source.url}
-              onChange={(_, data) => setSource({ url: data.value, isConnected: false })}
-            />
-          </Field>
-          <Field label="Personal Access Token" required>
-            <Input
-              type="password"
-              placeholder="Enter PAT"
-              value={source.token}
-              onChange={(_, data) => setSource({ token: data.value, isConnected: false })}
-            />
-          </Field>
-        </div>
-        <div className="button-row">
-          <Button
-            appearance="primary"
-            onClick={() => testConnection('source')}
-            disabled={testingSource || !source.url || !source.token}
+        <div className="card-title">Migration Mode</div>
+        <Field label="Select Mode">
+          <Dropdown
+            value={mode}
+            onOptionSelect={(_, data) => setMode(data.optionValue as any)}
           >
-            {testingSource ? <Spinner size="tiny" /> : 'Test Connection'}
-          </Button>
-        </div>
+            <Option value="migrate">Migrate (Export + Import)</Option>
+            <Option value="export">Export Only</Option>
+            <Option value="import">Import Only</Option>
+          </Dropdown>
+        </Field>
+        <p style={{ fontSize: 12, color: '#605e5c', marginTop: 8 }}>
+          {mode === 'export' && 'Export a process from source account to a file'}
+          {mode === 'import' && 'Import a process from a file to target account'}
+          {mode === 'migrate' && 'Export from source and import to target in one operation'}
+        </p>
       </div>
 
+      {/* Source Connection */}
+      {mode !== 'import' && (
+        <div className="card">
+          <div className="card-title">
+            Source Account
+            {source.isConnected && <Checkmark24Regular style={{ color: '#107c10', marginLeft: 8 }} />}
+          </div>
+          <div className="form-row">
+            <Field label="Organization URL" required>
+              <Input
+                placeholder="https://dev.azure.com/your-org"
+                value={source.url}
+                onChange={(_, data) => setSource({ url: data.value, isConnected: false })}
+              />
+            </Field>
+            <Field label="Personal Access Token" required>
+              <Input
+                type="password"
+                placeholder="Enter PAT"
+                value={source.token}
+                onChange={(_, data) => setSource({ token: data.value, isConnected: false })}
+              />
+            </Field>
+          </div>
+          <div className="button-row">
+            <Button
+              appearance="primary"
+              onClick={() => testConnection('source')}
+              disabled={testingSource || !source.url || !source.token}
+            >
+              {testingSource ? <Spinner size="tiny" /> : 'Test Connection'}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Process Selection */}
-      {source.isConnected && (
+      {mode !== 'import' && source.isConnected && (
         <div className="card">
           <div className="card-title">Process Selection</div>
           <div className="form-row">
@@ -295,16 +327,42 @@ export function SetupPage({ onNext }: SetupPageProps) {
               />
             </Field>
           </div>
-          <Field label="Migration Mode" style={{ marginTop: 16 }}>
-            <Dropdown
-              value={mode}
-              onOptionSelect={(_, data) => setMode(data.optionValue as any)}
-            >
-              <Option value="migrate">Migrate (Export + Import)</Option>
-              <Option value="export">Export Only</Option>
-              <Option value="import">Import Only</Option>
-            </Dropdown>
+        </div>
+      )}
+
+      {/* Import File Selection (for import mode) */}
+      {mode === 'import' && (
+        <div className="card">
+          <div className="card-title">Import File</div>
+          <Field label="Process File" required>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Input
+                value={importFilePath || ''}
+                placeholder="Select the exported process.json file"
+                readOnly
+                style={{ flex: 1 }}
+              />
+              <Button
+                icon={<FolderOpen24Regular />}
+                onClick={handleChooseImportFile}
+              >
+                Browse...
+              </Button>
+            </div>
           </Field>
+          <p style={{ fontSize: 12, color: '#605e5c', marginTop: 8 }}>
+            Select the process.json file that was previously exported.
+          </p>
+          <Field label="Target Process Name" style={{ marginTop: 16 }}>
+            <Input
+              placeholder="Name for imported process (optional)"
+              value={targetProcessName}
+              onChange={(_, data) => setTargetProcessName(data.value)}
+            />
+          </Field>
+          <p style={{ fontSize: 12, color: '#605e5c', marginTop: 8 }}>
+            Leave empty to use the original process name from the export file.
+          </p>
         </div>
       )}
 

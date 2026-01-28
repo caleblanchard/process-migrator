@@ -49,6 +49,15 @@ export function HistoryPage() {
     }
   };
 
+  const getUrlHostname = (url: string): string => {
+    if (!url) return 'N/A';
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return url || 'N/A';
+    }
+  };
+
   const formatDuration = (ms: number) => {
     const seconds = Math.floor(ms / 1000);
     if (seconds < 60) return `${seconds}s`;
@@ -130,9 +139,9 @@ export function HistoryPage() {
                     )}
                   </td>
                   <td style={{ fontSize: 12 }}>
-                    {new URL(entry.sourceUrl).hostname}
-                    {entry.mode !== 'export' && (
-                      <><br />→ {new URL(entry.targetUrl).hostname}</>
+                    {getUrlHostname(entry.sourceUrl)}
+                    {entry.mode !== 'export' && entry.targetUrl && (
+                      <><br />→ {getUrlHostname(entry.targetUrl)}</>
                     )}
                   </td>
                   <td>{formatDuration(entry.duration)}</td>

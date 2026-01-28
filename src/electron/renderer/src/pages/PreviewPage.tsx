@@ -38,7 +38,7 @@ interface WorkItemTypeDetails {
 }
 
 export function PreviewPage({ onNext, onBack }: PreviewPageProps) {
-  const { source, target, sourceProcess, mode } = useMigrationStore();
+  const { source, target, sourceProcess, mode, importFilePath, targetProcessName } = useMigrationStore();
   const [loading, setLoading] = useState(true);
   const [sourceDetails, setSourceDetails] = useState<ProcessDetails | null>(null);
   const [targetDetails, setTargetDetails] = useState<ProcessDetails | null>(null);
@@ -50,6 +50,12 @@ export function PreviewPage({ onNext, onBack }: PreviewPageProps) {
   }, [sourceProcess]);
 
   const loadProcessDetails = async () => {
+    // Skip loading for import mode - no source process to preview
+    if (mode === 'import') {
+      setLoading(false);
+      return;
+    }
+    
     if (!sourceProcess) return;
     
     setLoading(true);
@@ -282,6 +288,58 @@ export function PreviewPage({ onNext, onBack }: PreviewPageProps) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
         <Spinner size="large" label="Loading process details..." />
+      </div>
+    );
+  }
+
+  // Import mode - show simplified preview
+  if (mode === 'import') {
+    return (
+      <div>
+        <div className="page-header">
+          <h2>Preview Import</h2>
+          <p>Review import settings before proceeding</p>
+        </div>
+
+        <div className="card">
+          <div className="card-title">Import Summary</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <strong>Import File:</strong>
+              <div style={{ fontSize: 14, color: '#605e5c', marginTop: 4 }}>
+                {importFilePath || 'Not selected'}
+              </div>
+            </div>
+            <div>
+              <strong>Target Account:</strong>
+              <div style={{ fontSize: 14, color: '#605e5c', marginTop: 4 }}>
+                {target.url}
+              </div>
+            </div>
+            {targetProcessName && (
+              <div style={{ gridColumn: '1 / -1' }}>
+                <strong>Target Process Name:</strong>
+                <div style={{ fontSize: 14, color: '#605e5c', marginTop: 4 }}>
+                  {targetProcessName}
+                </div>
+              </div>
+            )}
+          </div>
+          <p style={{ marginTop: 16, padding: 12, background: '#f3f2f1', borderRadius: 4, fontSize: 14 }}>
+            The process will be imported from the selected file to the target account. 
+            {targetProcessName 
+              ? ` It will be created with the name "${targetProcessName}".`
+              : ' The original process name from the file will be used.'
+            }
+          </p>
+        </div>
+
+        <div className="button-row" style={{ justifyContent: 'space-between' }}>
+          <Button onClick={onBack}>Back to Setup</Button>
+          <Button appearance="primary" size="large" onClick={onNext}>
+            Continue to Import
+          </Button>
+        </div>
       </div>
     );
   }

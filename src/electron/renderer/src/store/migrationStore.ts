@@ -48,6 +48,8 @@ interface MigrationState {
   // Migration
   mode: 'export' | 'import' | 'migrate';
   options: MigrationOptions;
+  exportFilePath: string;
+  importFilePath: string;
   isRunning: boolean;
   progress: MigrationProgress | null;
   logs: LogEntry[];
@@ -62,6 +64,8 @@ interface MigrationState {
   setTargetProcessName: (name: string) => void;
   setMode: (mode: 'export' | 'import' | 'migrate') => void;
   setOptions: (options: Partial<MigrationOptions>) => void;
+  setExportFilePath: (path: string) => void;
+  setImportFilePath: (path: string) => void;
   setIsRunning: (isRunning: boolean) => void;
   setProgress: (progress: MigrationProgress | null) => void;
   addLog: (log: LogEntry) => void;
@@ -84,6 +88,8 @@ const initialState = {
     continueOnFieldDefaultValueFailure: false,
     skipImportFormContributions: false,
   },
+  exportFilePath: '',
+  importFilePath: '',
   isRunning: false,
   progress: null,
   logs: [],
@@ -101,6 +107,8 @@ export const useMigrationStore = create<MigrationState>((set) => ({
   setTargetProcessName: (name) => set({ targetProcessName: name }),
   setMode: (mode) => set({ mode }),
   setOptions: (options) => set((state) => ({ options: { ...state.options, ...options } })),
+  setExportFilePath: (path) => set({ exportFilePath: path }),
+  setImportFilePath: (path) => set({ importFilePath: path }),
   setIsRunning: (isRunning) => set({ isRunning }),
   setProgress: (progress) => set({ progress }),
   addLog: (log) => set((state) => ({ logs: [...state.logs, log] })),

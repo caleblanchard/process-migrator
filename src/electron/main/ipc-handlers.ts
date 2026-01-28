@@ -1,4 +1,4 @@
-import { ipcMain, app } from 'electron';
+import { ipcMain, app, dialog } from 'electron';
 import * as nodeApi from 'azure-devops-node-api';
 import { getProfiles, saveProfile, deleteProfile, getHistory, clearHistory, addHistoryEntry, IMigrationHistoryEntry } from './store';
 import { getMainWindow } from './index';
@@ -49,6 +49,45 @@ function sendComplete(success: boolean, error?: string) {
 }
 
 export function registerIpcHandlers() {
+    // File dialogs
+    ipcMain.handle('dialog:showSaveDialog', async (_event, options?: { defaultPath?: string }) => {
+        const mainWindow = getMainWindow();
+        if (!mainWindow) {
+            throw new Error('Main window not available');
+        }
+        
+        const result = await dialog.showSaveDialog(mainWindow, {
+            title: 'Save Export File',
+            defaultPath: options?.defaultPath || path.join(os.homedir(), 'process.json'),
+            filters: [
+                { name: 'JSON Files', extensions: ['json'] },
+                { name: 'All Files', extensions: ['*'] }
+            ],
+            properties: ['createDirectory', 'showOverwriteConfirmation']
+        });
+        
+        return result;
+    });
+
+    ipcMain.handle('dialog:showOpenDialog', async (_event, options?: { defaultPath?: string }) => {
+        const mainWindow = getMainWindow();
+        if (!mainWindow) {
+            throw new Error('Main window not available');
+        }
+        
+        const result = await dialog.showOpenDialog(mainWindow, {
+            title: 'Select Import File',
+            defaultPath: options?.defaultPath || os.homedir(),
+            filters: [
+                { name: 'JSON Files', extensions: ['json'] },
+                { name: 'All Files', extensions: ['*'] }
+            ],
+            properties: ['openFile']
+        });
+        
+        return { canceled: result.canceled, filePath: result.filePaths[0] };
+    });
+
     // Connection test
     ipcMain.handle('connection:test', async (_event, url: string, token: string) => {
         try {
@@ -132,6 +171,8 @@ export function registerIpcHandlers() {
         targetProcessName: string;
         mode: 'export' | 'import' | 'migrate';
         options: any;
+        exportFilePath?: string;
+        importFilePath?: string;
     }) => {
         const startTime = Date.now();
         const historyId = generateUUID();
@@ -153,6 +194,9 @@ export function registerIpcHandlers() {
                 continueOnRuleImportFailure: config.options?.continueOnRuleImportFailure || false,
                 continueOnIdentityDefaultValueFailure: config.options?.continueOnFieldDefaultValueFailure || false,
                 skipImportFormContributions: config.options?.skipImportFormContributions || false,
+                processFilename: config.mode === 'import' && config.importFilePath 
+                    ? config.importFilePath 
+                    : config.exportFilePath || undefined,
             }
         };
 
@@ -174,7 +218,7 @@ export function registerIpcHandlers() {
             // In dev, __dirname is build/electron/main, so go up 3 levels to root, then into build/nodejs
             cliPath = path.join(__dirname, '../../nodejs/nodejs/Main.js');
         } else {
-            cliPath = path.join(process.resourcesPath!, 'app', 'build', 'nodejs', 'nodejs', 'Main.js');
+            cliPath = path.join(process.resourcesPath!, 'app.asar', 'build', 'nodejs', 'nodejs', 'Main.js');
         }
 
         // Spawn the CLI process using Electron's bundled Node.js
@@ -183,7 +227,7 @@ export function registerIpcHandlers() {
         
         // In development, use system node. In production, use Electron's node
         const nodePath = isDev ? 'node' : process.execPath;
-        const execArgs = isDev ? [cliPath, ...args] : [cliPath, ...args];
+        const execArgs = isDev ? ['--no-deprecation', cliPath, ...args] : ['--no-deprecation', cliPath, ...args];
         
         sendProgress('Running migration', 2, 3);
         

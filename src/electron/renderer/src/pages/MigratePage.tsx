@@ -8,12 +8,14 @@ import {
   MessageBarTitle,
   Field,
   Divider,
+  Input,
 } from '@fluentui/react-components';
 import {
   Play24Regular,
   Stop24Regular,
   Checkmark24Filled,
   Dismiss24Filled,
+  FolderOpen24Regular,
 } from '@fluentui/react-icons';
 import { useMigrationStore } from '../store/migrationStore';
 
@@ -24,6 +26,8 @@ interface MigratePageProps {
 export function MigratePage({ onBack }: MigratePageProps) {
   const {
     source, target, sourceProcess, targetProcessName, mode, options, setOptions,
+    exportFilePath, setExportFilePath,
+    importFilePath,
     isRunning, setIsRunning, progress, setProgress, logs, addLog, clearLogs,
   } = useMigrationStore();
 
@@ -65,6 +69,15 @@ export function MigratePage({ onBack }: MigratePageProps) {
     }
   }, [logs]);
 
+  const handleChooseExportFile = async () => {
+    const defaultFileName = sourceProcess ? `${sourceProcess.name.replace(/\s+/g, '_')}.json` : 'process.json';
+    const result = await window.electronAPI.showSaveDialog({ defaultPath: defaultFileName });
+    
+    if (!result.canceled && result.filePath) {
+      setExportFilePath(result.filePath);
+    }
+  };
+
   const startMigration = async () => {
     clearLogs();
     setCompleted(false);
@@ -76,9 +89,11 @@ export function MigratePage({ onBack }: MigratePageProps) {
       sourceToken: source.token,
       targetUrl: target.url,
       targetToken: target.token,
-      sourceProcessName: sourceProcess!.name,
-      targetProcessName: targetProcessName || sourceProcess!.name,
+      sourceProcessName: sourceProcess?.name || '',
+      targetProcessName: targetProcessName || sourceProcess?.name || '',
       mode,
+      exportFilePath: (mode === 'export' || mode === 'migrate') && exportFilePath ? exportFilePath : undefined,
+      importFilePath: mode === 'import' && importFilePath ? importFilePath : undefined,
       options: {
         overwritePicklist: options.overwritePicklist,
         continueOnRuleImportFailure: options.continueOnRuleImportFailure,
@@ -123,10 +138,17 @@ export function MigratePage({ onBack }: MigratePageProps) {
           <div>
             <strong>Mode:</strong> {getModeLabel()}
           </div>
-          <div>
-            <strong>Source Process:</strong> {sourceProcess?.name}
-          </div>
-          {mode !== 'export' && (
+          {mode !== 'import' && (
+            <div>
+              <strong>Source Process:</strong> {sourceProcess?.name}
+            </div>
+          )}
+          {mode === 'import' && (
+            <div style={{ gridColumn: '1 / -1' }}>
+              <strong>Import File:</strong> {importFilePath || 'Not selected'}
+            </div>
+          )}
+          {mode !== 'export' && mode !== 'import' && (
             <>
               <div>
                 <strong>Source:</strong> {source.url}
@@ -139,6 +161,11 @@ export function MigratePage({ onBack }: MigratePageProps) {
               </div>
             </>
           )}
+          {mode === 'import' && (
+            <div>
+              <strong>Target:</strong> {target.url}
+            </div>
+          )}
         </div>
       </div>
 
@@ -147,6 +174,31 @@ export function MigratePage({ onBack }: MigratePageProps) {
         <div className="card">
           <div className="card-title">Options</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Export file path for export-only mode */}
+            {mode === 'export' && (
+              <>
+                <Field label="Export File Location">
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <Input
+                      value={exportFilePath || ''}
+                      placeholder="Default: output/process.json"
+                      readOnly
+                      style={{ flex: 1 }}
+                    />
+                    <Button
+                      icon={<FolderOpen24Regular />}
+                      onClick={handleChooseExportFile}
+                    >
+                      Choose...
+                    </Button>
+                  </div>
+                </Field>
+                <p style={{ fontSize: 12, color: '#605e5c', marginTop: -8 }}>
+                  Select where to save the exported process file. Leave empty to use default location.
+                </p>
+              </>
+            )}
+            
             <Checkbox
               checked={options.overwritePicklist}
               onChange={(_, data) => setOptions({ overwritePicklist: !!data.checked })}

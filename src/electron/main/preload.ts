@@ -23,6 +23,10 @@ export interface IElectronAPI {
     // History
     getHistory: () => Promise<any[]>;
     clearHistory: () => Promise<void>;
+    
+    // File dialogs
+    showSaveDialog: (options?: { defaultPath?: string }) => Promise<{ canceled: boolean; filePath?: string }>;
+    showOpenDialog: (options?: { defaultPath?: string }) => Promise<{ canceled: boolean; filePath?: string }>;
 }
 
 const electronAPI: IElectronAPI = {
@@ -65,6 +69,12 @@ const electronAPI: IElectronAPI = {
     // History
     getHistory: () => ipcRenderer.invoke('history:get'),
     clearHistory: () => ipcRenderer.invoke('history:clear'),
+    
+    // File dialogs
+    showSaveDialog: (options?: { defaultPath?: string }) => 
+        ipcRenderer.invoke('dialog:showSaveDialog', options),
+    showOpenDialog: (options?: { defaultPath?: string }) => 
+        ipcRenderer.invoke('dialog:showOpenDialog', options),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

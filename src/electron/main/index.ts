@@ -8,20 +8,27 @@ let mainWindow: BrowserWindow | null = null;
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
 function createWindow() {
-    mainWindow = new BrowserWindow({
+    const windowConfig: any = {
         width: 1200,
         height: 800,
         minWidth: 900,
         minHeight: 600,
+        resizable: true,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
             nodeIntegration: false,
         },
-        titleBarStyle: 'hiddenInset',
-        trafficLightPosition: { x: 15, y: 15 },
         show: false,
-    });
+    };
+
+    // macOS-specific styling
+    if (process.platform === 'darwin') {
+        windowConfig.titleBarStyle = 'hiddenInset';
+        windowConfig.trafficLightPosition = { x: 15, y: 15 };
+    }
+
+    mainWindow = new BrowserWindow(windowConfig);
 
     const rendererPath = path.join(__dirname, '../renderer/index.html');
     
