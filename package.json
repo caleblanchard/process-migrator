@@ -22,7 +22,8 @@
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
     "dist": "npm run build:electron && electron-builder",
     "dist:win": "npm run build:electron && electron-builder --win",
-    "dist:mac": "npm run build:electron && electron-builder --mac"
+    "dist:mac": "npm run build:electron && electron-builder --mac",
+    "postinstall": "cd src/electron/renderer && npm install"
   },
   "build": {
     "appId": "com.microsoft.process-migrator",
@@ -83,6 +84,7 @@
     "@types/uuid": "^10.0.0",
     "@vitejs/plugin-react": "^4.3.0",
     "concurrently": "^9.1.0",
+    "electron": "^31.0.0",
     "electron-builder": "^25.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -95,7 +97,6 @@
   },
   "dependencies": {
     "azure-devops-node-api": "^6.5.0",
-    "electron": "^31.0.0",
     "electron-store": "^8.1.0",
     "guid-typescript": "~1.0.8",
     "jsonc-parser": "~3.1.0",
