@@ -23,12 +23,24 @@ function createWindow() {
         show: false,
     });
 
+    const rendererPath = path.join(__dirname, '../renderer/index.html');
+    
     if (isDev) {
+        console.log('Loading dev server: http://localhost:5173');
         mainWindow.loadURL('http://localhost:5173');
         mainWindow.webContents.openDevTools();
     } else {
-        mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+        console.log('Loading production file:', rendererPath);
+        console.log('__dirname:', __dirname);
+        console.log('app.getAppPath():', app.getAppPath());
+        mainWindow.loadFile(rendererPath).catch(err => {
+            console.error('Failed to load renderer:', err);
+        });
     }
+
+    mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+        console.error('Renderer failed to load:', errorCode, errorDescription);
+    });
 
     mainWindow.once('ready-to-show', () => {
         mainWindow?.show();

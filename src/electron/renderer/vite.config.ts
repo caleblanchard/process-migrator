@@ -7,7 +7,7 @@ export default defineConfig({
   root: resolve(__dirname, 'src'),
   base: './',
   build: {
-    outDir: resolve(__dirname, '../../build/electron/renderer'),
+    outDir: resolve(__dirname, '../../../build/electron/renderer'),
     emptyOutDir: true,
   },
   server: {
