@@ -20,6 +20,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Extract version from tag
+        id: get_version
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Update package.json version
+        shell: bash
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          if [ "${{ matrix.platform }}" == "win" ]; then
+            npm version $VERSION --no-git-tag-version --allow-same-version
+          else
+            npm version $VERSION --no-git-tag-version --allow-same-version
+          fi
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
