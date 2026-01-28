@@ -183,7 +183,7 @@ export function registerIpcHandlers() {
         
         // In development, use system node. In production, use Electron's node
         const nodePath = isDev ? 'node' : process.execPath;
-        const execArgs = isDev ? [cliPath, ...args] : ['--no-sandbox', cliPath, ...args];
+        const execArgs = isDev ? [cliPath, ...args] : [cliPath, ...args];
         
         sendProgress('Running migration', 2, 3);
         
