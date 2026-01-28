@@ -133,6 +133,14 @@ export function SetupPage({ onNext }: SetupPageProps) {
     }
   };
 
+  const getUrlHostname = (url: string): string => {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return url || 'Invalid URL';
+    }
+  };
+
   const testConnection = async (type: 'source' | 'target') => {
     const config = type === 'source' ? source : target;
     const setConfig = type === 'source' ? setSource : setTarget;
@@ -408,7 +416,7 @@ export function SetupPage({ onNext }: SetupPageProps) {
                       <div>
                         <div style={{ fontWeight: 600, marginBottom: 4 }}>{profile.name}</div>
                         <div style={{ fontSize: 12, color: '#605e5c' }}>
-                          {new URL(profile.sourceUrl).hostname} → {new URL(profile.targetUrl).hostname}
+                          {getUrlHostname(profile.sourceUrl)} → {getUrlHostname(profile.targetUrl)}
                         </div>
                       </div>
                       <Button
