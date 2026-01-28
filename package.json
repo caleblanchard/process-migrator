@@ -2,18 +2,57 @@
   "name": "process-migrator",
   "version": "0.9.8",
   "description": "Proces import/export Node.js application",
-  "main": "",
+  "main": "build/electron/main/index.js",
   "bin": {
     "process-migrator": "build/nodejs/nodejs/Main.js"
   },
   "engines": {
-    "node": ">=8.11.2"
+    "node": ">=16.0.0"
   },
   "scripts": {
     "build": "tsc -p src/nodejs/tsconfig.json && tsc -p src/browser/tsconfig.json",
     "build:release": "tsc -p src/nodejs/tsconfig.json && tsc -p src/browser/tsconfig.json",
     "bn": "tsc -p src/nodejs/tsconfig.json",
-    "bb": "tsc -p src/browser/tsconfig.json"
+    "bb": "tsc -p src/browser/tsconfig.json",
+    "build:electron-main": "tsc -p src/electron/main/tsconfig.json",
+    "build:electron-renderer": "cd src/electron/renderer && npm run build",
+    "build:electron": "npm run build:electron-main && npm run build:electron-renderer",
+    "dev:renderer": "cd src/electron/renderer && npm run dev",
+    "dev:electron": "wait-on http://localhost:5173 && electron .",
+    "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:electron\"",
+    "dist": "npm run build:electron && electron-builder",
+    "dist:win": "npm run build:electron && electron-builder --win",
+    "dist:mac": "npm run build:electron && electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.microsoft.process-migrator",
+    "productName": "Process Migrator",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "build/electron/**/*",
+      "build/common/**/*",
+      "build/nodejs/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.developer-tools"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
   },
   "repository": {
     "type": "git",
@@ -32,13 +71,32 @@
   "author": "Microsoft",
   "license": "MIT",
   "devDependencies": {
+    "@electron-forge/cli": "^7.6.0",
+    "@fluentui/react-components": "^9.72.10",
+    "@fluentui/react-icons": "^2.0.317",
     "@types/minimist": "^1.2.2",
     "@types/mkdirp": "^0.5.2",
-    "@types/node": "8.10.0",
-    "typescript": "^2.8.1"
+    "@types/node": "^18.0.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/react-router-dom": "^5.3.3",
+    "@types/uuid": "^10.0.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "concurrently": "^9.1.0",
+    "electron-builder": "^25.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.26.0",
+    "typescript": "^5.0.0",
+    "uuid": "^13.0.0",
+    "vite": "^5.4.0",
+    "wait-on": "^8.0.0",
+    "zustand": "^5.0.10"
   },
   "dependencies": {
     "azure-devops-node-api": "^6.5.0",
+    "electron": "^31.0.0",
+    "electron-store": "^8.1.0",
     "guid-typescript": "~1.0.8",
     "jsonc-parser": "~3.1.0",
     "minimist": "~1.2.7",

@@ -12,12 +12,62 @@ We are working on resolving this (see issues #107, #108).
 This application provide you ability to automate the [Process](https://docs.microsoft.com/en-us/vsts/work/customize/process/manage-process?view=vsts) export/import across VSTS accounts through Node.js CLI.
 
 **NOTE:** This only works with 'Inherited Process', for 'XML process' you may upload/download process as ZIP. 
- 
+
 # Getting Started
 
-## Run
+## Desktop Application (Recommended)
 
-To run this tool you must have both NodeJS and NPM installed. They are available as a single package and instructions are below.
+A desktop application is available with a graphical user interface for easier use.
+
+### Running the Desktop App
+
+1. Install dependencies: `npm install`
+2. Build the CLI first: `npm run build`
+3. Start the desktop app in development mode: `npm run dev`
+
+### Building Executables
+
+To build standalone executables for distribution:
+
+```bash
+# Build for current platform
+npm run dist
+
+# Build for Windows only (produces .exe installer)
+npm run dist:win
+
+# Build for macOS only (produces .dmg)
+npm run dist:mac
+```
+
+Built executables will be in the `dist/` folder.
+
+### Creating a Release
+
+To create a new release with automated builds:
+
+1. Update the version in `package.json` (e.g., `"version": "1.0.0"`)
+2. Commit the change: `git commit -am "Release v1.0.0"`
+3. Create a git tag: `git tag v1.0.0`
+4. Push the tag: `git push origin v1.0.0`
+
+The GitHub Actions workflow will automatically:
+- Build executables for Windows and macOS
+- Create a GitHub release
+- Upload the installers to the release
+
+### Desktop App Features
+
+- **Visual Configuration** - No manual JSON editing required
+- **Connection Profiles** - Save and load Azure DevOps connection settings
+- **Process Preview** - View work item types, fields, and states before migration
+- **Diff Comparison** - Compare source and target processes side-by-side
+- **Real-time Progress** - Live logs and step-by-step progress tracking
+- **Migration History** - View past migrations with status and duration
+
+## CLI Usage
+
+To run the command-line tool you must have both NodeJS and NPM installed. They are available as a single package and instructions are below.
 
 - Install Node from https://nodejs.org/en/download/ or https://nodejs.org/en/download/package-manager/
 - Install this package through `npm install process-migrator -g` 
