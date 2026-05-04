@@ -92,7 +92,7 @@ export function registerIpcHandlers() {
     ipcMain.handle('connection:test', async (_event, url: string, token: string) => {
         try {
             const clients = await getRestClients(url, token);
-            await clients.witProcessApi.getProcesses();
+            await clients.witProcessApi.getListOfProcesses();
             return { success: true };
         } catch (error: any) {
             return { success: false, error: error.message || 'Connection failed' };
@@ -103,7 +103,7 @@ export function registerIpcHandlers() {
     ipcMain.handle('process:list', async (_event, url: string, token: string) => {
         try {
             const clients = await getRestClients(url, token);
-            const processes = await clients.witProcessApi.getProcesses();
+            const processes = await clients.witProcessApi.getListOfProcesses();
             return (processes || []).map((p: any) => ({
                 id: p.typeId,
                 name: p.name,
