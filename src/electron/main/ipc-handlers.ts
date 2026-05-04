@@ -9,6 +9,57 @@ import * as os from 'os';
 
 let migrationProcess: ChildProcess | null = null;
 
+const MAX_RETRIES = 5;
+const CONCURRENCY_LIMIT = 3;
+
+function isRateLimitError(error: any): boolean {
+    if (error?.statusCode === 429) { return true; }
+    const msg: string = error?.message || '';
+    return msg.includes('Request was blocked') || msg.includes('RequestBlockedException');
+}
+
+function getRateLimitDelayMs(error: any, attempt: number): number {
+    const retryAfter = error?.responseHeaders?.['retry-after'] || error?.responseHeaders?.['Retry-After'];
+    if (retryAfter) {
+        const seconds = parseInt(retryAfter, 10);
+        if (!isNaN(seconds) && seconds > 0) { return seconds * 1000; }
+    }
+    return Math.min(2000 * Math.pow(2, attempt), 60000);
+}
+
+async function withRetry<T>(fn: () => Promise<T>, label?: string): Promise<T> {
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            return await fn();
+        } catch (error: any) {
+            if (attempt < MAX_RETRIES && isRateLimitError(error)) {
+                const delayMs = getRateLimitDelayMs(error, attempt);
+                console.warn(`Rate limited${label ? ` on '${label}'` : ''}, retrying in ${delayMs}ms (attempt ${attempt + 1}/${MAX_RETRIES})...`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+            } else {
+                throw error;
+            }
+        }
+    }
+    throw new Error(`Max retries exceeded${label ? ` for '${label}'` : ''}`);
+}
+
+async function withConcurrencyLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+    const results: R[] = new Array(items.length);
+    const indexed = items.map((item, i) => ({ item, i }));
+    const queue = [...indexed];
+
+    async function worker() {
+        while (queue.length > 0) {
+            const { item, i } = queue.shift()!;
+            results[i] = await fn(item);
+        }
+    }
+
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+    return results;
+}
+
 function generateUUID(): string {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
         const r = Math.random() * 16 | 0;
@@ -124,8 +175,10 @@ export function registerIpcHandlers() {
             const process = await clients.witProcessApi.getProcessByItsId(processId);
             const workItemTypes = await clients.witProcessDefinitionApi.getWorkItemTypes(processId);
             
-            const workItemTypesWithDetails = await Promise.all(
-                (workItemTypes || []).map(async (wit: any) => {
+            const workItemTypesWithDetails = await withConcurrencyLimit(
+                workItemTypes || [],
+                CONCURRENCY_LIMIT,
+                async (wit: any) => {
                     let fields: any[] = [];
                     let states: any[] = [];
                     
@@ -133,13 +186,19 @@ export function registerIpcHandlers() {
                     const witRefName = wit.referenceName || wit.id;
                     
                     try {
-                        fields = await clients.witProcessDefinitionApi.getWorkItemTypeFields(processId, witRefName) || [];
+                        fields = await withRetry(
+                            () => clients.witProcessDefinitionApi.getWorkItemTypeFields(processId, witRefName),
+                            `getWorkItemTypeFields(${witRefName})`
+                        ) || [];
                     } catch (e: any) {
                         console.error(`Failed to get fields for ${witRefName}:`, e.message);
                     }
                     
                     try {
-                        states = await clients.witProcessDefinitionApi.getStateDefinitions(processId, witRefName) || [];
+                        states = await withRetry(
+                            () => clients.witProcessDefinitionApi.getStateDefinitions(processId, witRefName),
+                            `getStateDefinitions(${witRefName})`
+                        ) || [];
                     } catch (e: any) {
                         console.error(`Failed to get states for ${witRefName}:`, e.message);
                     }
@@ -149,7 +208,7 @@ export function registerIpcHandlers() {
                         fields,
                         states,
                     };
-                })
+                }
             );
 
             return {
