@@ -15,10 +15,18 @@ import { ICommandLineOptions, IConfigurationFile, IDictionaryStringTo, IProcessP
 import { logger } from "./Logger";
 import { Utility } from "./Utilities";
 
-/** VS403436: system/inherited behavior reference name already exists at collection level */
-function isReferenceNameInUseError(error: any): boolean {
+/** VS403436: reference name already in use; VS403200: invalid parent for system behavior */
+function isInheritedBehaviorError(error: any): boolean {
     const msg: string = error?.message || '';
-    return msg.includes('VS403436') || msg.includes('reference name you specified is already in use');
+    return msg.includes('VS403436') ||
+        msg.includes('reference name you specified is already in use') ||
+        msg.includes('VS403200') ||
+        msg.includes('Invalid parent behavior');
+}
+
+/** System and VSTS behaviors already exist in any standard-template process — replace, don't create */
+function isSystemBehaviorId(behaviorId: string): boolean {
+    return behaviorId.startsWith('System.') || behaviorId.startsWith('Microsoft.VSTS.');
 }
 
 export class ProcessImporter {
@@ -496,23 +504,24 @@ export class ProcessImporter {
                 const fakeName = Utility.createGuidWithoutHyphen();
                 behaviorIdToRealNameBehavior[behavior.id] = Utility.toReplaceBehavior(behavior);
 
-                if (!existing) {
+                if (!existing || isSystemBehaviorId(behavior.id)) {
                     const createBehavior: WITProcessDefinitionsInterfaces.BehaviorCreateModel = Utility.toCreateBehavior(behavior);
                     createBehavior.name = fakeName;
-                    let fallbackToReplace = false;
-                    try {
-                        const createdBehavior = await Engine.Task(
-                            () => this._witProcessDefinitionApi.createBehavior(createBehavior, payload.process.typeId),
-                            `Create behavior '${behavior.id}' with fake name '${behavior.name}'`);
-                        if (!createdBehavior || createdBehavior.id !== behavior.id) {
-                            throw new ImportError(`Failed to create behavior '${behavior.name}', server returned empty result or id does not match.`)
+                    let fallbackToReplace = isSystemBehaviorId(behavior.id);
+                    if (!fallbackToReplace) {
+                        try {
+                            const createdBehavior = await Engine.Task(
+                                () => this._witProcessDefinitionApi.createBehavior(createBehavior, payload.process.typeId),
+                                `Create behavior '${behavior.id}' with fake name '${behavior.name}'`);
+                            if (!createdBehavior || createdBehavior.id !== behavior.id) {
+                                throw new ImportError(`Failed to create behavior '${behavior.name}', server returned empty result or id does not match.`)
+                            }
+                        } catch (createError: any) {
+                            if (!isInheritedBehaviorError(createError)) { throw createError; }
+                            // Inherited behavior already exists at the collection level — fall back to replace.
+                            logger.logWarning(`Behavior '${behavior.id}' is inherited and already exists, falling back to replace.`);
+                            fallbackToReplace = true;
                         }
-                    } catch (createError: any) {
-                        if (!isReferenceNameInUseError(createError)) { throw createError; }
-                        // System/inherited behavior already exists at the collection level but wasn't
-                        // returned by getBehaviors on the newly created process — fall back to replace.
-                        logger.logWarning(`Behavior '${behavior.id}' is inherited and already exists, falling back to replace.`);
-                        fallbackToReplace = true;
                     }
                     if (fallbackToReplace) {
                         const replaceBehavior: WITProcessDefinitionsInterfaces.BehaviorReplaceModel = { color: behavior.color, name: fakeName };
