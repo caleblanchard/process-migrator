@@ -443,10 +443,10 @@ export class ProcessImporter {
         }
     }
 
-    private async _importWITRule(rule: WITProcessInterfaces.FieldRuleModel, witRulesEntry: IWITRules, payload: IProcessPayload) {
+    private async _importWITRule(rule: WITProcessInterfaces.ProcessRule, witRulesEntry: IWITRules, payload: IProcessPayload) {
         try {
             const createdRule = await Engine.Task(
-                () => this._witProcessApi.addWorkItemTypeRule(rule, payload.process.typeId, witRulesEntry.workItemTypeRefName),
+                () => this._witProcessApi.addProcessWorkItemTypeRule(rule, payload.process.typeId, witRulesEntry.workItemTypeRefName),
                 `Create rule '${rule.id}' in work item type '${witRulesEntry.workItemTypeRefName}'`);
 
             if (!createdRule || !createdRule.id) {
@@ -467,7 +467,7 @@ export class ProcessImporter {
     private async _importRules(payload: IProcessPayload): Promise<void> {
         for (const witRulesEntry of payload.rules) {
             for (const rule of witRulesEntry.rules) {
-                if (!rule.isSystem) {
+                if (rule.customizationType !== WITProcessInterfaces.CustomizationType.System) {
                     await this._importWITRule(rule, witRulesEntry, payload);
                 }
             }
@@ -478,7 +478,7 @@ export class ProcessImporter {
         const behaviorsOnTarget = await Utility.tryCatchWithKnownError(
             async () => {
                 return await Engine.Task(
-                    () => this._witProcessApi.getBehaviors(payload.process.typeId),
+                    () => this._witProcessDefinitionApi.getBehaviors(payload.process.typeId),
                     `Get behaviors on target account`);
             }, () => new ImportError(`Failed to get behaviors on target account.`));
 
@@ -629,13 +629,13 @@ export class ProcessImporter {
     }
 
     private async _validateProcess(payload: IProcessPayload): Promise<void> {
-        if (payload.process.properties.class != WITProcessInterfaces.ProcessClass.Derived) {
+        if (payload.process.customizationType !== WITProcessInterfaces.CustomizationType.Inherited) {
             throw new ValidationError("Only inherited process is supported to be imported.");
         }
 
-        const targetProcesses: WITProcessInterfaces.ProcessModel[] =
+        const targetProcesses: WITProcessInterfaces.ProcessInfo[] =
             await Utility.tryCatchWithKnownError(async () => {
-                return await Engine.Task(() => this._witProcessApi.getProcesses(), `Get processes on target account`);
+                return await Engine.Task(() => this._witProcessApi.getListOfProcesses(), `Get processes on target account`);
             }, () => new ValidationError("Failed to get processes on target acccount, check account url, token and token permission."));
 
         if (!targetProcesses) { // most likely 404
@@ -751,11 +751,11 @@ export class ProcessImporter {
     }
 
     private async _deleteProcessOnTarget(targetProcessName: string) {
-        const processes = await this._witProcessApi.getProcesses();
+        const processes = await this._witProcessApi.getListOfProcesses();
         for (const process of processes.filter(p => p.name.toLocaleLowerCase() === targetProcessName.toLocaleLowerCase())) {
             await Utility.tryCatchWithKnownError(
                 async () => await Engine.Task(
-                    () => this._witProcessApi.deleteProcess(process.typeId),
+                    () => this._witProcessApi.deleteProcessById(process.typeId),
                     `Delete process '${process.name}' on target account`),
                 () => new ImportError(`Failed to delete process on target, do you have projects created using that project?`));
         }
@@ -764,7 +764,7 @@ export class ProcessImporter {
     private async _createProcess(payload: IProcessPayload) {
         const createProcessModel: WITProcessInterfaces.CreateProcessModel = Utility.ProcessModelToCreateProcessModel(payload.process);
         const createdProcess = await Engine.Task(
-            () => this._witProcessApi.createProcess(createProcessModel),
+            () => this._witProcessApi.createNewProcess(createProcessModel),
             `Create process '${createProcessModel.name}'`);
         if (!createdProcess) {
             throw new ImportError(`Failed to create process '${createProcessModel.name}' on target account.`);

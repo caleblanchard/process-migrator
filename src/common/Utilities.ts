@@ -53,11 +53,11 @@ export class Utility {
     /**Convert process from ProcessModel to CreateProcessModel
      * @param processModel
     */
-    public static ProcessModelToCreateProcessModel(processModel: WITProcessInterfaces.ProcessModel): WITProcessInterfaces.CreateProcessModel {
+    public static ProcessModelToCreateProcessModel(processModel: WITProcessInterfaces.ProcessInfo): WITProcessInterfaces.CreateProcessModel {
         const createModel: WITProcessInterfaces.CreateProcessModel = {
             description: processModel.description,
             name: processModel.name,
-            parentProcessTypeId: processModel.properties.parentProcessTypeId,
+            parentProcessTypeId: processModel.parentProcessTypeId,
             referenceName: Utility.createGuidWithoutHyphen() // Reference name does not really matter since we already have typeId
         };
         return createModel;
@@ -137,7 +137,7 @@ export class Utility {
         return updateState;
     }
 
-    public static toCreateBehavior(behavior: WITProcessInterfaces.WorkItemBehavior): WITProcessDefinitionsInterfaces.BehaviorCreateModel {
+    public static toCreateBehavior(behavior: WITProcessDefinitionsInterfaces.BehaviorModel): WITProcessDefinitionsInterfaces.BehaviorCreateModel {
         const createBehavior: WITProcessDefinitionsInterfaces.BehaviorCreateModel = {
             color: behavior.color,
             inherits: behavior.inherits.id,
@@ -148,7 +148,7 @@ export class Utility {
         return createBehavior;
     }
 
-    public static toReplaceBehavior(behavior: WITProcessInterfaces.WorkItemBehavior): WITProcessDefinitionsInterfaces.BehaviorReplaceModel {
+    public static toReplaceBehavior(behavior: WITProcessDefinitionsInterfaces.BehaviorModel): WITProcessDefinitionsInterfaces.BehaviorReplaceModel {
         const replaceBehavior: WITProcessDefinitionsInterfaces.BehaviorReplaceModel = {
             color: behavior.color,
             name: behavior.name
