@@ -24,6 +24,7 @@ async function getRestClients(url: string, token: string) {
     return {
         witApi: await connection.getWorkItemTrackingApi(),
         witProcessApi: await connection.getWorkItemTrackingProcessApi(),
+        witProcessDefinitionApi: await connection.getWorkItemTrackingProcessDefinitionApi(),
     };
 }
 
@@ -120,8 +121,8 @@ export function registerIpcHandlers() {
     ipcMain.handle('process:get', async (_event, url: string, token: string, processId: string) => {
         try {
             const clients = await getRestClients(url, token);
-            const process = await clients.witProcessApi.getProcessById(processId);
-            const workItemTypes = await clients.witProcessApi.getWorkItemTypes(processId);
+            const process = await clients.witProcessApi.getProcessByItsId(processId);
+            const workItemTypes = await clients.witProcessDefinitionApi.getWorkItemTypes(processId);
             
             const workItemTypesWithDetails = await Promise.all(
                 (workItemTypes || []).map(async (wit: any) => {
@@ -132,13 +133,13 @@ export function registerIpcHandlers() {
                     const witRefName = wit.referenceName || wit.id;
                     
                     try {
-                        fields = await clients.witProcessApi.getWorkItemTypeFields(processId, witRefName) || [];
+                        fields = await clients.witProcessDefinitionApi.getWorkItemTypeFields(processId, witRefName) || [];
                     } catch (e: any) {
                         console.error(`Failed to get fields for ${witRefName}:`, e.message);
                     }
                     
                     try {
-                        states = await clients.witProcessApi.getStateDefinitions(processId, witRefName) || [];
+                        states = await clients.witProcessDefinitionApi.getStateDefinitions(processId, witRefName) || [];
                     } catch (e: any) {
                         console.error(`Failed to get states for ${witRefName}:`, e.message);
                     }
