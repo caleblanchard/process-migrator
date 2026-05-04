@@ -140,7 +140,7 @@ export class Utility {
     public static toCreateBehavior(behavior: WITProcessDefinitionsInterfaces.BehaviorModel): WITProcessDefinitionsInterfaces.BehaviorCreateModel {
         const createBehavior: WITProcessDefinitionsInterfaces.BehaviorCreateModel = {
             color: behavior.color,
-            inherits: behavior.inherits.id,
+            inherits: behavior.inherits?.id,
             name: behavior.name
         };
         // TODO: Move post S135 when generated model has id. 

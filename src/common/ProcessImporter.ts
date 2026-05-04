@@ -505,10 +505,10 @@ export class ProcessImporter {
                 behaviorIdToRealNameBehavior[behavior.id] = Utility.toReplaceBehavior(behavior);
 
                 if (!existing || isSystemBehaviorId(behavior.id)) {
-                    const createBehavior: WITProcessDefinitionsInterfaces.BehaviorCreateModel = Utility.toCreateBehavior(behavior);
-                    createBehavior.name = fakeName;
                     let fallbackToReplace = isSystemBehaviorId(behavior.id);
                     if (!fallbackToReplace) {
+                        const createBehavior: WITProcessDefinitionsInterfaces.BehaviorCreateModel = Utility.toCreateBehavior(behavior);
+                        createBehavior.name = fakeName;
                         try {
                             const createdBehavior = await Engine.Task(
                                 () => this._witProcessDefinitionApi.createBehavior(createBehavior, payload.process.typeId),
