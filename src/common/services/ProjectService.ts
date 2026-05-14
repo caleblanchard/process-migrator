@@ -1,6 +1,7 @@
 import { IRestClients, IProjectInfo } from "../Interfaces";
 import { Engine } from "../Engine";
 import { logger } from "../Logger";
+import { ProjectVisibility } from "azure-devops-node-api/interfaces/CoreInterfaces";
 
 const PROJECT_POLL_INTERVAL_MS = 3000;
 const PROJECT_POLL_TIMEOUT_MS = 120000;
@@ -76,7 +77,7 @@ export class ProjectService {
             () => coreApi.queueCreateProject({
                 name,
                 description,
-                visibility: 1, // private
+                visibility: ProjectVisibility.Private,
                 capabilities: {
                     versioncontrol: { sourceControlType: "Git" },
                     processTemplate: { templateTypeId: processTypeId },
