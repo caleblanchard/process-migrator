@@ -30,9 +30,7 @@ export function ProjectPage({ onNext, onBack }: ProjectPageProps) {
   const [targetProjects, setTargetProjects] = useState<any[]>([]);
   const [loadingSource, setLoadingSource] = useState(false);
   const [loadingTarget, setLoadingTarget] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState(false);
 
   // Load source projects once source is connected
   useEffect(() => {
@@ -57,29 +55,9 @@ export function ProjectPage({ onNext, onBack }: ProjectPageProps) {
       .finally(() => setLoadingTarget(false));
   }, [target.isConnected, project.action, sourceProcess?.id]);
 
-  const handleCreateProject = async () => {
-    setError(null);
-    setCreating(true);
-    try {
-      await window.electronAPI.createProject(
-        target.url,
-        target.token,
-        targetProjectName,
-        project.description || '',
-        sourceProcess?.id || ''
-      );
-      setCreated(true);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setCreating(false);
-    }
-  };
-
   const canProceed = (() => {
-    if (!sourceProjectName) { return false; }
     if (project.action === 'none') { return true; }
-    if (project.action === 'create') { return !!targetProjectName && (created || true); }
+    if (project.action === 'create') { return !!targetProjectName; }
     if (project.action === 'useExisting') { return !!targetProjectName; }
     return false;
   })();
@@ -103,9 +81,9 @@ export function ProjectPage({ onNext, onBack }: ProjectPageProps) {
         {loadingSource ? (
           <Spinner label="Loading projects..." />
         ) : (
-          <Field label="Select source project to migrate work items from">
+          <Field label="Source project (for work item migration)">
             <Dropdown
-              placeholder="Select a project..."
+              placeholder="Select a project (optional)..."
               value={sourceProjectName}
               onOptionSelect={(_e, data) => setSourceProjectName(data.optionValue as string)}
             >
@@ -116,7 +94,7 @@ export function ProjectPage({ onNext, onBack }: ProjectPageProps) {
           </Field>
         )}
         <p style={{ fontSize: 12, color: '#605e5c', marginTop: 8 }}>
-          Only required for work item migration. Leave empty to skip work item migration.
+          Only required when migrating work items. Leave empty to skip work item migration.
         </p>
       </div>
 
@@ -127,7 +105,6 @@ export function ProjectPage({ onNext, onBack }: ProjectPageProps) {
           value={project.action}
           onChange={(_e, data) => {
             setProject({ action: data.value as any });
-            setCreated(false);
           }}
         >
           <Radio value="none" label="Skip — process migration only (no project or work items)" />
@@ -152,22 +129,13 @@ export function ProjectPage({ onNext, onBack }: ProjectPageProps) {
                 placeholder="Project description"
               />
             </Field>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <Button
-                appearance="secondary"
-                onClick={handleCreateProject}
-                disabled={!targetProjectName || creating || !sourceProcess?.id}
-              >
-                {creating ? <Spinner size="tiny" /> : null}
-                {creating ? ' Creating...' : 'Create Project Now'}
-              </Button>
-              {created && (
-                <span style={{ color: '#107c10', fontSize: 13 }}>✓ Project created successfully</span>
-              )}
-            </div>
-            <p style={{ fontSize: 12, color: '#605e5c' }}>
-              The project will use the imported process template. You can also create it during migration.
-            </p>
+            <MessageBar intent="info">
+              <MessageBarBody>
+                The project will be created automatically during the migration step, after the
+                process template has been imported to the target org. It will use the imported
+                process template.
+              </MessageBarBody>
+            </MessageBar>
           </div>
         )}
 
