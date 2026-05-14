@@ -4,6 +4,7 @@ import * as WITInterfaces from "azure-devops-node-api/interfaces/WorkItemTrackin
 import { IWorkItemTrackingProcessDefinitionsApi as WITProcessDefinitionApi } from "azure-devops-node-api/WorkItemTrackingProcessDefinitionsApi";
 import { IWorkItemTrackingProcessApi as WITProcessApi } from "azure-devops-node-api/WorkItemTrackingProcessApi";
 import { IWorkItemTrackingApi as WITApi } from "azure-devops-node-api/WorkItemTrackingApi";
+import { ICoreApi } from "azure-devops-node-api/CoreApi";
 
 export enum LogLevel {
     error,
@@ -38,6 +39,14 @@ export interface IConfigurationFile {
     sourceAccountToken?: string;
     targetAccountToken?: string;
     options?: IConfigurationOptions;
+    /** Required for any work item operation */
+    sourceProjectName?: string;
+    /** Required for work item import / project creation */
+    targetProjectName?: string;
+    /** Controls target project creation/selection */
+    project?: IProjectOptions;
+    /** Controls work item migration */
+    workItems?: IWorkItemOptions;
 }
 
 export interface IConfigurationOptions {
@@ -131,4 +140,92 @@ export interface IRestClients {
     witApi: WITApi;
     witProcessApi: WITProcessApi;
     witProcessDefinitionApi: WITProcessDefinitionApi;
+    coreApi?: ICoreApi;
+}
+
+// ---------------------------------------------------------------------------
+// Project management
+// ---------------------------------------------------------------------------
+
+export interface IProjectInfo {
+    id: string;
+    name: string;
+    description?: string;
+    url: string;
+    state: string;
+    processTemplateTypeId?: string;
+}
+
+/** Options controlling target project creation/selection */
+export interface IProjectOptions {
+    /** 'none' = skip project step, 'create' = create new project, 'useExisting' = select existing */
+    action: 'none' | 'create' | 'useExisting';
+    description?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Work item migration
+// ---------------------------------------------------------------------------
+
+/** Options controlling work item migration */
+export interface IWorkItemOptions {
+    /** 'disabled' = skip, 'online' = live copy, 'export' = write snapshot file, 'import' = read snapshot file */
+    mode: 'disabled' | 'online' | 'export' | 'import';
+    snapshotFilename?: string;         // default: "output/workitems.json"
+    maxItems?: number;                 // no limit if omitted
+    includeRelations?: boolean;        // default: true
+    includeWorkItemTypes?: string[];   // if set, only these WIT ref names
+    excludeWorkItemTypes?: string[];   // if set, skip these WIT ref names
+}
+
+/** Versioned offline snapshot */
+export interface WorkItemSnapshot {
+    schemaVersion: '1.0';
+    exportedAt: string;
+    sourceOrgUrl: string;
+    sourceProjectName: string;
+    totalCount: number;
+    workItems: WorkItemRecord[];
+}
+
+export interface WorkItemRecord {
+    id: number;
+    workItemType: string;
+    fields: Record<string, any>;
+    relations: WorkItemRelation[];
+}
+
+/** Relation stored as sourceId integer (not raw URL) for portable offline files */
+export interface WorkItemRelation {
+    rel: string;
+    sourceId: number;
+    comment?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Migration report / preflight
+// ---------------------------------------------------------------------------
+
+export interface IMigrationReport {
+    sourceProject: string;
+    targetProject: string;
+    totalWorkItems: number;
+    workItemsByType: Record<string, number>;
+    skippedByTypeFilter: number;
+    warnings: string[];
+    blockers: string[];
+    fieldSkipList: string[];
+}
+
+export interface IWorkItemImportResult {
+    created: number;
+    failed: number;
+    idMap: Map<number, number>;
+    fieldErrors: string[];
+}
+
+export interface ILinkReplayResult {
+    created: number;
+    skipped: number;
+    failed: number;
 }

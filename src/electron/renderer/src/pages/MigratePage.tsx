@@ -28,6 +28,7 @@ export function MigratePage({ onBack }: MigratePageProps) {
     source, target, sourceProcess, targetProcessName, mode, options, setOptions,
     exportFilePath, setExportFilePath,
     importFilePath,
+    sourceProjectName, targetProjectName, project, workItems,
     isRunning, setIsRunning, progress, setProgress, logs, addLog, clearLogs,
   } = useMigrationStore();
 
@@ -84,7 +85,7 @@ export function MigratePage({ onBack }: MigratePageProps) {
     setError(null);
     setIsRunning(true);
 
-    const config = {
+    const config: any = {
       sourceUrl: source.url,
       sourceToken: source.token,
       targetUrl: target.url,
@@ -101,6 +102,11 @@ export function MigratePage({ onBack }: MigratePageProps) {
         skipImportFormContributions: options.skipImportFormContributions,
       },
     };
+
+    if (sourceProjectName) { config.sourceProjectName = sourceProjectName; }
+    if (targetProjectName) { config.targetProjectName = targetProjectName; }
+    if (project.action !== 'none') { config.project = project; }
+    if (workItems.mode !== 'disabled') { config.workItems = workItems; }
 
     try {
       await window.electronAPI.startMigration(config);

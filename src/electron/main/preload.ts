@@ -7,6 +7,17 @@ export interface IElectronAPI {
     // Processes
     listProcesses: (url: string, token: string) => Promise<{ id: string; name: string; description?: string }[]>;
     getProcessDetails: (url: string, token: string, processId: string) => Promise<any>;
+
+    // Projects
+    listProjects: (url: string, token: string) => Promise<any[]>;
+    listProjectsByProcess: (url: string, token: string, processTypeId: string) => Promise<any[]>;
+    createProject: (url: string, token: string, name: string, description: string, processTypeId: string) => Promise<any>;
+
+    // Work items
+    workItemsPreflight: (config: any) => Promise<any>;
+    workItemsExport: (config: any) => Promise<any>;
+    workItemsImport: (config: any) => Promise<any>;
+    workItemsMigrate: (config: any) => Promise<any>;
     
     // Migration
     startMigration: (config: any) => Promise<void>;
@@ -39,6 +50,20 @@ const electronAPI: IElectronAPI = {
         ipcRenderer.invoke('process:list', url, token),
     getProcessDetails: (url: string, token: string, processId: string) => 
         ipcRenderer.invoke('process:get', url, token, processId),
+
+    // Projects
+    listProjects: (url: string, token: string) =>
+        ipcRenderer.invoke('project:list', url, token),
+    listProjectsByProcess: (url: string, token: string, processTypeId: string) =>
+        ipcRenderer.invoke('project:list-by-process', url, token, processTypeId),
+    createProject: (url: string, token: string, name: string, description: string, processTypeId: string) =>
+        ipcRenderer.invoke('project:create', url, token, name, description, processTypeId),
+
+    // Work items
+    workItemsPreflight: (config: any) => ipcRenderer.invoke('workitems:preflight', config),
+    workItemsExport: (config: any) => ipcRenderer.invoke('workitems:export', config),
+    workItemsImport: (config: any) => ipcRenderer.invoke('workitems:import', config),
+    workItemsMigrate: (config: any) => ipcRenderer.invoke('workitems:migrate', config),
     
     // Migration
     startMigration: (config: any) => 

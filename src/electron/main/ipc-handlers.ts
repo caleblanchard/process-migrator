@@ -6,6 +6,13 @@ import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
+import { ProjectService } from '../../common/services/ProjectService';
+import { WorkItemExportService } from '../../common/services/WorkItemExportService';
+import { WorkItemImportService } from '../../common/services/WorkItemImportService';
+import { LinkReplayService } from '../../common/services/LinkReplayService';
+import { ClassificationNodeService } from '../../common/services/ClassificationNodeService';
+import { WorkItemOrchestrator } from '../../common/WorkItemOrchestrator';
+import { IWorkItemOptions } from '../../common/Interfaces';
 
 let migrationProcess: ChildProcess | null = null;
 
@@ -76,6 +83,7 @@ async function getRestClients(url: string, token: string) {
         witApi: await connection.getWorkItemTrackingApi(),
         witProcessApi: await connection.getWorkItemTrackingProcessApi(),
         witProcessDefinitionApi: await connection.getWorkItemTrackingProcessDefinitionApi(),
+        coreApi: await connection.getCoreApi(),
     };
 }
 
@@ -233,6 +241,10 @@ export function registerIpcHandlers() {
         options: any;
         exportFilePath?: string;
         importFilePath?: string;
+        sourceProjectName?: string;
+        targetProjectName?: string;
+        project?: { action: 'none' | 'create' | 'useExisting'; description?: string };
+        workItems?: IWorkItemOptions;
     }) => {
         const startTime = Date.now();
         const historyId = generateUUID();
@@ -241,7 +253,7 @@ export function registerIpcHandlers() {
         const tempDir = os.tmpdir();
         const configPath = path.join(tempDir, `process-migrator-${historyId}.json`);
         
-        const configContent = {
+        const configContent: any = {
             sourceAccountUrl: config.sourceUrl,
             sourceAccountToken: config.sourceToken,
             targetAccountUrl: config.targetUrl,
@@ -259,6 +271,11 @@ export function registerIpcHandlers() {
                     : config.exportFilePath || undefined,
             }
         };
+
+        if (config.sourceProjectName) { configContent.sourceProjectName = config.sourceProjectName; }
+        if (config.targetProjectName) { configContent.targetProjectName = config.targetProjectName; }
+        if (config.project) { configContent.project = config.project; }
+        if (config.workItems) { configContent.workItems = config.workItems; }
 
         fs.writeFileSync(configPath, JSON.stringify(configContent, null, 2));
 
@@ -417,4 +434,134 @@ export function registerIpcHandlers() {
     // History handlers
     ipcMain.handle('history:get', () => getHistory());
     ipcMain.handle('history:clear', () => clearHistory());
+
+    // -------------------------------------------------------------------------
+    // Project handlers
+    // -------------------------------------------------------------------------
+
+    ipcMain.handle('project:list', async (_event, url: string, token: string) => {
+        try {
+            const clients = await getRestClients(url, token);
+            const svc = new ProjectService(clients);
+            return await svc.listProjects();
+        } catch (error: any) {
+            throw new Error(error.message || 'Failed to list projects');
+        }
+    });
+
+    ipcMain.handle('project:list-by-process', async (_event, url: string, token: string, processTypeId: string) => {
+        try {
+            const clients = await getRestClients(url, token);
+            const svc = new ProjectService(clients);
+            return await svc.getProjectsUsingProcess(processTypeId);
+        } catch (error: any) {
+            throw new Error(error.message || 'Failed to list projects by process');
+        }
+    });
+
+    ipcMain.handle('project:create', async (_event, url: string, token: string, name: string, description: string, processTypeId: string) => {
+        try {
+            const clients = await getRestClients(url, token);
+            const svc = new ProjectService(clients);
+            return await svc.createProject(name, description, processTypeId);
+        } catch (error: any) {
+            throw new Error(error.message || 'Failed to create project');
+        }
+    });
+
+    // -------------------------------------------------------------------------
+    // Work item handlers
+    // -------------------------------------------------------------------------
+
+    ipcMain.handle('workitems:preflight', async (_event, config: {
+        sourceUrl: string; sourceToken: string;
+        targetUrl: string; targetToken: string;
+        sourceProjectName: string; targetProjectName: string;
+        workItemOptions: IWorkItemOptions;
+    }) => {
+        try {
+            const sourceClients = await getRestClients(config.sourceUrl, config.sourceToken);
+            const targetClients = await getRestClients(config.targetUrl, config.targetToken);
+            const exportSvc = new WorkItemExportService(sourceClients);
+            const snapshot = await exportSvc.exportFromProject(config.sourceProjectName, config.sourceUrl, config.workItemOptions);
+
+            // Build preflight report inline (reuse orchestrator internal logic via a minimal config)
+            const orchestrator = new WorkItemOrchestrator(sourceClients, targetClients, {
+                sourceAccountUrl: config.sourceUrl,
+                targetAccountUrl: config.targetUrl,
+                sourceProjectName: config.sourceProjectName,
+                targetProjectName: config.targetProjectName,
+                workItems: config.workItemOptions,
+            });
+            // @ts-ignore — access internal preflight for UI preview
+            return await (orchestrator as any)._runPreflight(snapshot, config.targetProjectName, config.workItemOptions);
+        } catch (error: any) {
+            throw new Error(error.message || 'Preflight check failed');
+        }
+    });
+
+    ipcMain.handle('workitems:export', async (_event, config: {
+        sourceUrl: string; sourceToken: string;
+        sourceProjectName: string;
+        workItemOptions: IWorkItemOptions;
+        snapshotFilePath: string;
+    }) => {
+        try {
+            const clients = await getRestClients(config.sourceUrl, config.sourceToken);
+            const svc = new WorkItemExportService(clients);
+            const snapshot = await svc.exportFromProject(config.sourceProjectName, config.sourceUrl, config.workItemOptions);
+            fs.writeFileSync(config.snapshotFilePath, JSON.stringify(snapshot, null, 2), 'utf-8');
+            return { success: true, count: snapshot.totalCount, filePath: config.snapshotFilePath };
+        } catch (error: any) {
+            throw new Error(error.message || 'Work item export failed');
+        }
+    });
+
+    ipcMain.handle('workitems:import', async (_event, config: {
+        targetUrl: string; targetToken: string;
+        targetProjectName: string;
+        workItemOptions: IWorkItemOptions;
+        snapshotFilePath: string;
+    }) => {
+        try {
+            const raw = fs.readFileSync(config.snapshotFilePath, 'utf-8');
+            const snapshot = JSON.parse(raw);
+            const clients = await getRestClients(config.targetUrl, config.targetToken);
+            const classifySvc = new ClassificationNodeService(clients);
+            const { areas, iterations } = classifySvc.collectUsedPaths(snapshot, snapshot.sourceProjectName);
+            await classifySvc.ensurePathsExist(config.targetProjectName, areas, iterations);
+            const importSvc = new WorkItemImportService(clients);
+            const importResult = await importSvc.importSnapshot(snapshot, config.targetProjectName, config.workItemOptions);
+            if (config.workItemOptions.includeRelations !== false) {
+                const linkSvc = new LinkReplayService(clients);
+                await linkSvc.replayLinks(snapshot, importResult.idMap, config.targetUrl);
+            }
+            return { success: true, created: importResult.created, failed: importResult.failed };
+        } catch (error: any) {
+            throw new Error(error.message || 'Work item import failed');
+        }
+    });
+
+    ipcMain.handle('workitems:migrate', async (_event, config: {
+        sourceUrl: string; sourceToken: string;
+        targetUrl: string; targetToken: string;
+        sourceProjectName: string; targetProjectName: string;
+        workItemOptions: IWorkItemOptions;
+    }) => {
+        try {
+            const sourceClients = await getRestClients(config.sourceUrl, config.sourceToken);
+            const targetClients = await getRestClients(config.targetUrl, config.targetToken);
+            const orchestrator = new WorkItemOrchestrator(sourceClients, targetClients, {
+                sourceAccountUrl: config.sourceUrl,
+                targetAccountUrl: config.targetUrl,
+                sourceProjectName: config.sourceProjectName,
+                targetProjectName: config.targetProjectName,
+                workItems: config.workItemOptions,
+            });
+            await orchestrator.run();
+            return { success: true };
+        } catch (error: any) {
+            throw new Error(error.message || 'Work item migration failed');
+        }
+    });
 }

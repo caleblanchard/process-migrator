@@ -33,6 +33,20 @@ export interface MigrationProgress {
   total: number;
 }
 
+export interface ProjectOptions {
+  action: 'none' | 'create' | 'useExisting';
+  description?: string;
+}
+
+export interface WorkItemOptions {
+  mode: 'disabled' | 'online' | 'export' | 'import';
+  snapshotFilename?: string;
+  maxItems?: number;
+  includeRelations?: boolean;
+  includeWorkItemTypes?: string[];
+  excludeWorkItemTypes?: string[];
+}
+
 interface MigrationState {
   // Connection
   source: ConnectionConfig;
@@ -44,6 +58,14 @@ interface MigrationState {
   sourceProcess: ProcessInfo | null;
   targetProcess: ProcessInfo | null;
   targetProcessName: string;
+
+  // Project
+  sourceProjectName: string;
+  targetProjectName: string;
+  project: ProjectOptions;
+
+  // Work items
+  workItems: WorkItemOptions;
   
   // Migration
   mode: 'export' | 'import' | 'migrate';
@@ -62,6 +84,10 @@ interface MigrationState {
   setSourceProcess: (process: ProcessInfo | null) => void;
   setTargetProcess: (process: ProcessInfo | null) => void;
   setTargetProcessName: (name: string) => void;
+  setSourceProjectName: (name: string) => void;
+  setTargetProjectName: (name: string) => void;
+  setProject: (opts: Partial<ProjectOptions>) => void;
+  setWorkItems: (opts: Partial<WorkItemOptions>) => void;
   setMode: (mode: 'export' | 'import' | 'migrate') => void;
   setOptions: (options: Partial<MigrationOptions>) => void;
   setExportFilePath: (path: string) => void;
@@ -81,6 +107,10 @@ const initialState = {
   sourceProcess: null,
   targetProcess: null,
   targetProcessName: '',
+  sourceProjectName: '',
+  targetProjectName: '',
+  project: { action: 'none' as const },
+  workItems: { mode: 'disabled' as const, includeRelations: true },
   mode: 'migrate' as const,
   options: {
     overwritePicklist: false,
@@ -105,6 +135,10 @@ export const useMigrationStore = create<MigrationState>((set) => ({
   setSourceProcess: (process) => set({ sourceProcess: process }),
   setTargetProcess: (process) => set({ targetProcess: process }),
   setTargetProcessName: (name) => set({ targetProcessName: name }),
+  setSourceProjectName: (name) => set({ sourceProjectName: name }),
+  setTargetProjectName: (name) => set({ targetProjectName: name }),
+  setProject: (opts) => set((state) => ({ project: { ...state.project, ...opts } })),
+  setWorkItems: (opts) => set((state) => ({ workItems: { ...state.workItems, ...opts } })),
   setMode: (mode) => set({ mode }),
   setOptions: (options) => set((state) => ({ options: { ...state.options, ...options } })),
   setExportFilePath: (path) => set({ exportFilePath: path }),

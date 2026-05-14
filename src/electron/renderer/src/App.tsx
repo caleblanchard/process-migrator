@@ -7,14 +7,18 @@ import {
   ArrowSync24Regular,
   History24Regular,
   Eye24Regular,
+  Folder24Regular,
+  TagMultiple24Regular,
 } from '@fluentui/react-icons';
 import { SetupPage } from './pages/SetupPage';
 import { PreviewPage } from './pages/PreviewPage';
+import { ProjectPage } from './pages/ProjectPage';
+import { WorkItemsPage } from './pages/WorkItemsPage';
 import { MigratePage } from './pages/MigratePage';
 import { HistoryPage } from './pages/HistoryPage';
 import { useMigrationStore } from './store/migrationStore';
 
-type Page = 'setup' | 'preview' | 'migrate' | 'history';
+type Page = 'setup' | 'preview' | 'project' | 'workitems' | 'migrate' | 'history';
 
 export function App() {
   const [currentPage, setCurrentPage] = useState<Page>('setup');
@@ -23,6 +27,8 @@ export function App() {
   const navItems = [
     { id: 'setup' as Page, label: 'Setup', icon: <Settings24Regular /> },
     { id: 'preview' as Page, label: 'Preview', icon: <Eye24Regular />, disabled: !sourceProcess },
+    { id: 'project' as Page, label: 'Project', icon: <Folder24Regular />, disabled: !sourceProcess },
+    { id: 'workitems' as Page, label: 'Work Items', icon: <TagMultiple24Regular />, disabled: !sourceProcess },
     { id: 'migrate' as Page, label: 'Migrate', icon: <ArrowSync24Regular />, disabled: !sourceProcess },
     { id: 'history' as Page, label: 'History', icon: <History24Regular /> },
   ];
@@ -32,9 +38,13 @@ export function App() {
       case 'setup':
         return <SetupPage onNext={() => setCurrentPage('preview')} />;
       case 'preview':
-        return <PreviewPage onNext={() => setCurrentPage('migrate')} onBack={() => setCurrentPage('setup')} />;
+        return <PreviewPage onNext={() => setCurrentPage('project')} onBack={() => setCurrentPage('setup')} />;
+      case 'project':
+        return <ProjectPage onNext={() => setCurrentPage('workitems')} onBack={() => setCurrentPage('preview')} />;
+      case 'workitems':
+        return <WorkItemsPage onNext={() => setCurrentPage('migrate')} onBack={() => setCurrentPage('project')} />;
       case 'migrate':
-        return <MigratePage onBack={() => setCurrentPage('preview')} />;
+        return <MigratePage onBack={() => setCurrentPage('workitems')} />;
       case 'history':
         return <HistoryPage />;
       default:
