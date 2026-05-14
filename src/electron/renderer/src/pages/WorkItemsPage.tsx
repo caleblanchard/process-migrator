@@ -35,7 +35,8 @@ interface PreflightReport {
 export function WorkItemsPage({ onNext, onBack }: WorkItemsPageProps) {
   const {
     source, target,
-    sourceProjectName, targetProjectName,
+    sourceProjectName, setSourceProjectName,
+    targetProjectName, setTargetProjectName,
     workItems, setWorkItems,
   } = useMigrationStore();
 
@@ -96,11 +97,23 @@ export function WorkItemsPage({ onNext, onBack }: WorkItemsPageProps) {
     }
   };
 
+  const needsSource = workItems.mode === 'online' || workItems.mode === 'export';
+  const needsTarget = workItems.mode === 'online' || workItems.mode === 'import';
+
+  const preflightDisabledReasons: string[] = [];
+  if (preflightRunning) preflightDisabledReasons.push('running');
+  if (needsSource && !source.isConnected) preflightDisabledReasons.push('source not connected');
+  if (needsTarget && !target.isConnected) preflightDisabledReasons.push('target not connected');
+  if (needsSource && !sourceProjectName) preflightDisabledReasons.push('source project name required');
+  if (needsTarget && !targetProjectName) preflightDisabledReasons.push('target project name required');
+  if ((workItems.mode === 'export' || workItems.mode === 'import') && !workItems.snapshotFilename)
+    preflightDisabledReasons.push('snapshot file required');
+
+  const canRunPreflight = preflightDisabledReasons.length === 0;
+
   const canProceed = workItems.mode === 'disabled' || (
     preflight !== null && preflight.blockers.length === 0
   );
-
-  const modeRequiresConnections = workItems.mode !== 'disabled';
 
   return (
     <div>
@@ -126,7 +139,7 @@ export function WorkItemsPage({ onNext, onBack }: WorkItemsPageProps) {
         </RadioGroup>
       </div>
 
-      {modeRequiresConnections && (
+      {workItems.mode !== 'disabled' && (
         <>
           {/* Snapshot file (offline modes) */}
           {(workItems.mode === 'export' || workItems.mode === 'import') && (
@@ -147,6 +160,33 @@ export function WorkItemsPage({ onNext, onBack }: WorkItemsPageProps) {
                   </Button>
                 </div>
               </Field>
+            </div>
+          )}
+
+          {/* Project names — required for the selected mode */}
+          {(needsSource || needsTarget) && (
+            <div className="card">
+              <div className="card-title">Projects</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {needsSource && (
+                  <Field label="Source project name" required hint="The ADO project to migrate work items from">
+                    <Input
+                      value={sourceProjectName}
+                      onChange={(_, d) => setSourceProjectName(d.value)}
+                      placeholder="e.g. MyProject"
+                    />
+                  </Field>
+                )}
+                {needsTarget && (
+                  <Field label="Target project name" required hint="The ADO project to migrate work items into">
+                    <Input
+                      value={targetProjectName}
+                      onChange={(_, d) => setTargetProjectName(d.value)}
+                      placeholder="e.g. MyProject"
+                    />
+                  </Field>
+                )}
+              </div>
             </div>
           )}
 
@@ -295,11 +335,16 @@ export function WorkItemsPage({ onNext, onBack }: WorkItemsPageProps) {
             <Button
               appearance="secondary"
               onClick={runPreflight}
-              disabled={preflightRunning || !sourceProjectName || (workItems.mode !== 'import' && !source.isConnected)}
+              disabled={!canRunPreflight}
             >
               {preflightRunning ? <Spinner size="tiny" style={{ marginRight: 8 }} /> : null}
               {preflightRunning ? 'Running...' : 'Run Preflight Check'}
             </Button>
+            {!canRunPreflight && preflightDisabledReasons.some(r => r !== 'running') && (
+              <p style={{ fontSize: 12, color: '#605e5c', marginTop: 6 }}>
+                Required before running preflight: {preflightDisabledReasons.filter(r => r !== 'running').join(', ')}.
+              </p>
+            )}
           </div>
         </>
       )}
