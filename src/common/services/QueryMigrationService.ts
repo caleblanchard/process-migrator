@@ -3,7 +3,7 @@ import { IRestClients } from "../Interfaces";
 import { logger } from "../Logger";
 
 const SHARED_QUERIES_PATH = "Shared Queries";
-const FETCH_DEPTH = 10;
+const MAX_FETCH_DEPTH = 2; // ADO API maximum allowed depth
 
 export interface IQueryMigrationResult {
     foldersCreated: number;
@@ -25,14 +25,14 @@ export class QueryMigrationService {
 
         const result: IQueryMigrationResult = { foldersCreated: 0, queriesCreated: 0, failed: 0 };
 
-        // Fetch the full Shared Queries tree from source (QueryExpand.All = 3 includes WIQL)
+        // Fetch the Shared Queries tree from source (max depth 2 per API limits; deep folders fetched lazily)
         let root: WITInterfaces.QueryHierarchyItem;
         try {
             root = await this._sourceClients.witApi.getQuery(
                 sourceProjectName,
                 SHARED_QUERIES_PATH,
                 3 /* QueryExpand.All */,
-                FETCH_DEPTH
+                MAX_FETCH_DEPTH
             );
         } catch (err: any) {
             logger.logWarning(`Could not read shared queries from source project: ${err?.message}`);
@@ -108,9 +108,26 @@ export class QueryMigrationService {
             }
         }
 
-        // Recurse into children
-        if (item.children?.length) {
-            await this._copyChildren(item.children, folderPath, sourceProjectName, targetProjectName, result);
+        // Lazily re-fetch this folder at depth 2 to hydrate children that may have been
+        // truncated because we hit the API depth limit on the parent fetch.
+        let children = item.children;
+        if (!children?.length) {
+            // The folder might still have children — fetch it explicitly
+            try {
+                const fetched = await this._sourceClients.witApi.getQuery(
+                    sourceProjectName,
+                    folderPath,
+                    3 /* QueryExpand.All */,
+                    MAX_FETCH_DEPTH,
+                );
+                children = fetched?.children;
+            } catch {
+                // If the fetch fails, just skip children
+            }
+        }
+
+        if (children?.length) {
+            await this._copyChildren(children, folderPath, sourceProjectName, targetProjectName, result);
         }
     }
 
