@@ -132,13 +132,14 @@ export class ClassificationNodeService {
         if (!node) { return paths; }
 
         const visit = (n: any, prefix: string) => {
+            if (!n || typeof n.name !== 'string') { return; }
             const fullPath = prefix ? `${prefix}\\${n.name}` : n.name;
             // Strip project root node itself
             if (n.name !== projectName) {
-                const relative = fullPath.toLowerCase().startsWith(projectName.toLowerCase() + "\\")
+                const relative = (fullPath || "").toLowerCase().startsWith(projectName.toLowerCase() + "\\")
                     ? fullPath.slice(projectName.length + 1).toLowerCase()
-                    : fullPath.toLowerCase();
-                paths.add(relative);
+                    : (fullPath || "").toLowerCase();
+                if (relative) { paths.add(relative); }
             }
             for (const child of n.children || []) {
                 visit(child, fullPath);
