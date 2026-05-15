@@ -28,7 +28,7 @@ export function MigratePage({ onBack }: MigratePageProps) {
     source, target, sourceProcess, targetProcessName, mode, options, setOptions,
     exportFilePath, setExportFilePath,
     importFilePath,
-    sourceProjectName, targetProjectName, project, workItems,
+    sourceProjectName, targetProjectName, targetProcessTypeId, project, workItems,
     isRunning, setIsRunning, progress, setProgress, logs, addLog, clearLogs,
   } = useMigrationStore();
 
@@ -105,6 +105,7 @@ export function MigratePage({ onBack }: MigratePageProps) {
 
     if (sourceProjectName) { config.sourceProjectName = sourceProjectName; }
     if (targetProjectName) { config.targetProjectName = targetProjectName; }
+    if (targetProcessTypeId) { config.targetProcessTypeId = targetProcessTypeId; }
     if (project.action !== 'none') { config.project = project; }
     if (workItems.mode !== 'disabled') { config.workItems = workItems; }
 
@@ -144,9 +145,14 @@ export function MigratePage({ onBack }: MigratePageProps) {
           <div>
             <strong>Mode:</strong> {getModeLabel()}
           </div>
-          {mode !== 'import' && (
+          {sourceProcess ? (
             <div>
-              <strong>Source Process:</strong> {sourceProcess?.name}
+              <strong>Source Process:</strong> {sourceProcess.name}
+            </div>
+          ) : (
+            <div style={{ gridColumn: '1 / -1' }}>
+              <strong>Process migration:</strong>{' '}
+              <span style={{ color: '#605e5c' }}>Skipped — using existing process on target</span>
             </div>
           )}
           {mode === 'import' && (
@@ -162,14 +168,26 @@ export function MigratePage({ onBack }: MigratePageProps) {
               <div>
                 <strong>Target:</strong> {target.url}
               </div>
-              <div>
-                <strong>Target Process Name:</strong> {targetProcessName || sourceProcess?.name}
-              </div>
+              {sourceProcess && (
+                <div>
+                  <strong>Target Process Name:</strong> {targetProcessName || sourceProcess?.name}
+                </div>
+              )}
             </>
           )}
           {mode === 'import' && (
             <div>
               <strong>Target:</strong> {target.url}
+            </div>
+          )}
+          {project.action !== 'none' && (
+            <div>
+              <strong>Target Project:</strong> {targetProjectName} ({project.action})
+            </div>
+          )}
+          {workItems.mode !== 'disabled' && (
+            <div>
+              <strong>Work Items:</strong> {workItems.mode}
             </div>
           )}
         </div>

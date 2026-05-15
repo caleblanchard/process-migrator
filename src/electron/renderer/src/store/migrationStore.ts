@@ -62,6 +62,7 @@ interface MigrationState {
   // Project
   sourceProjectName: string;
   targetProjectName: string;
+  targetProcessTypeId: string;
   project: ProjectOptions;
 
   // Work items
@@ -86,6 +87,7 @@ interface MigrationState {
   setTargetProcessName: (name: string) => void;
   setSourceProjectName: (name: string) => void;
   setTargetProjectName: (name: string) => void;
+  setTargetProcessTypeId: (id: string) => void;
   setProject: (opts: Partial<ProjectOptions>) => void;
   setWorkItems: (opts: Partial<WorkItemOptions>) => void;
   setMode: (mode: 'export' | 'import' | 'migrate') => void;
@@ -109,6 +111,7 @@ const initialState = {
   targetProcessName: '',
   sourceProjectName: '',
   targetProjectName: '',
+  targetProcessTypeId: '',
   project: { action: 'none' as const },
   workItems: { mode: 'disabled' as const, includeRelations: true },
   mode: 'migrate' as const,
@@ -137,6 +140,7 @@ export const useMigrationStore = create<MigrationState>((set) => ({
   setTargetProcessName: (name) => set({ targetProcessName: name }),
   setSourceProjectName: (name) => set({ sourceProjectName: name }),
   setTargetProjectName: (name) => set({ targetProjectName: name }),
+  setTargetProcessTypeId: (id) => set({ targetProcessTypeId: id }),
   setProject: (opts) => set((state) => ({ project: { ...state.project, ...opts } })),
   setWorkItems: (opts) => set((state) => ({ workItems: { ...state.workItems, ...opts } })),
   setMode: (mode) => set({ mode }),

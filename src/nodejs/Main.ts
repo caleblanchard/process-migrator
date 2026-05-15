@@ -42,6 +42,7 @@ async function main() {
 
     const mode = commandLineOptions.mode;
     const userOptions = configuration.options as IConfigurationOptions;
+    const hasProcessMigration = !!(configuration.sourceProcessName?.trim());
     const needsWorkItemOrchestration =
         (configuration.workItems?.mode && configuration.workItems.mode !== "disabled") ||
         (configuration.project?.action && configuration.project.action !== "none");
@@ -49,9 +50,9 @@ async function main() {
     try {
         // Export
         let processPayload: IProcessPayload;
-        let importedProcessTypeId: string | undefined;
+        let importedProcessTypeId: string | undefined = configuration.targetProcessTypeId;
 
-        if (mode === Modes.export || mode === Modes.migrate) {
+        if (hasProcessMigration && (mode === Modes.export || mode === Modes.migrate)) {
             const sourceRestClients = await Engine.Task(() => NodeJsUtility.getRestClients(configuration.sourceAccountUrl, configuration.sourceAccountToken), `Get rest client on source account '${configuration.sourceAccountUrl}'`);
             const exporter: ProcessExporter = new ProcessExporter(sourceRestClients, configuration);
             processPayload = await exporter.exportProcess();
@@ -62,7 +63,7 @@ async function main() {
         }
 
         // Import 
-        if (mode === Modes.import || mode == Modes.migrate) {
+        if (hasProcessMigration && (mode === Modes.import || mode == Modes.migrate)) {
             if (mode === Modes.import) { // Read payload from file instead
                 const processFileName = (configuration.options && configuration.options.processFilename) || normalize(defaultProcessFilename);
                 if (!existsSync(processFileName)) {
@@ -76,22 +77,21 @@ async function main() {
             const targetRestClients = await Engine.Task(() => NodeJsUtility.getRestClients(configuration.targetAccountUrl, configuration.targetAccountToken), `Get rest client on target account '${configuration.targetAccountUrl}'`);
             const importer: ProcessImporter = new ProcessImporter(targetRestClients, configuration, commandLineOptions);
             await importer.importProcess(processPayload);
-            importedProcessTypeId = processPayload?.process?.typeId;
+            importedProcessTypeId = processPayload?.process?.typeId || importedProcessTypeId;
+        }
+
+        if (!hasProcessMigration && needsWorkItemOrchestration) {
+            logger.logInfo("Skipping process migration — running project/work item operations only.");
         }
 
         // Work item migration / project creation
         if (needsWorkItemOrchestration) {
-            const sourceRestClients = mode === Modes.export || mode === Modes.migrate
+            const needsSource = !configuration.workItems || configuration.workItems.mode === "online" || configuration.workItems.mode === "export";
+            const wiSourceClients = needsSource
                 ? await Engine.Task(() => NodeJsUtility.getRestClients(configuration.sourceAccountUrl, configuration.sourceAccountToken), `Get rest client on source account '${configuration.sourceAccountUrl}'`)
                 : null;
 
-            const targetRestClients = mode === Modes.import || mode === Modes.migrate
-                ? await Engine.Task(() => NodeJsUtility.getRestClients(configuration.targetAccountUrl, configuration.targetAccountToken), `Get rest client on target account '${configuration.targetAccountUrl}'`)
-                : await Engine.Task(() => NodeJsUtility.getRestClients(configuration.targetAccountUrl, configuration.targetAccountToken), `Get rest client on target account '${configuration.targetAccountUrl}'`);
-
-            // For export-only WI mode, sourceClients may differ from what was used for process migration
-            const wiSourceClients = sourceRestClients ||
-                await Engine.Task(() => NodeJsUtility.getRestClients(configuration.sourceAccountUrl, configuration.sourceAccountToken), `Get rest client on source account '${configuration.sourceAccountUrl}'`);
+            const targetRestClients = await Engine.Task(() => NodeJsUtility.getRestClients(configuration.targetAccountUrl, configuration.targetAccountToken), `Get rest client on target account '${configuration.targetAccountUrl}'`);
 
             const orchestrator = new WorkItemOrchestrator(wiSourceClients, targetRestClients, configuration);
             await orchestrator.run(importedProcessTypeId);

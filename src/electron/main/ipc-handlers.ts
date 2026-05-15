@@ -243,6 +243,7 @@ export function registerIpcHandlers() {
         importFilePath?: string;
         sourceProjectName?: string;
         targetProjectName?: string;
+        targetProcessTypeId?: string;
         project?: { action: 'none' | 'create' | 'useExisting'; description?: string };
         workItems?: IWorkItemOptions;
     }) => {
@@ -274,6 +275,7 @@ export function registerIpcHandlers() {
 
         if (config.sourceProjectName) { configContent.sourceProjectName = config.sourceProjectName; }
         if (config.targetProjectName) { configContent.targetProjectName = config.targetProjectName; }
+        if (config.targetProcessTypeId) { configContent.targetProcessTypeId = config.targetProcessTypeId; }
         if (config.project) { configContent.project = config.project; }
         if (config.workItems) { configContent.workItems = config.workItems; }
 

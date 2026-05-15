@@ -154,17 +154,23 @@ export class WorkItemOrchestrator {
         description: string | undefined,
         processTypeId: string | undefined
     ): Promise<string> {
+        // Fall back to the config-supplied targetProcessTypeId when process migration was skipped
+        const effectiveProcessTypeId = processTypeId || this._config.targetProcessTypeId;
+
         if (action === "create") {
             if (!targetProjectName) {
                 throw new Error("configuration.targetProjectName is required when project.action = 'create'.");
             }
-            if (!processTypeId) {
-                throw new Error("importedProcessTypeId must be provided to create a project. Run a process migration first.");
+            if (!effectiveProcessTypeId) {
+                throw new Error(
+                    "A process type ID is required to create a project. Either run a process migration first " +
+                    "or set configuration.targetProcessTypeId to an existing process on the target org."
+                );
             }
             const info = await this._projectService.createProject(
                 targetProjectName,
                 description || "",
-                processTypeId
+                effectiveProcessTypeId
             );
             return info.name;
         }
@@ -173,12 +179,12 @@ export class WorkItemOrchestrator {
             if (!targetProjectName) {
                 throw new Error("configuration.targetProjectName is required when project.action = 'useExisting'.");
             }
-            if (processTypeId) {
-                const matching = await this._projectService.getProjectsUsingProcess(processTypeId);
+            if (effectiveProcessTypeId) {
+                const matching = await this._projectService.getProjectsUsingProcess(effectiveProcessTypeId);
                 const found = matching.find(p => p.name.toLowerCase() === targetProjectName.toLowerCase());
                 if (!found) {
-                    throw new Error(
-                        `Project '${targetProjectName}' does not exist on target or does not use the migrated process '${processTypeId}'.`
+                    logger.logWarning(
+                        `Project '${targetProjectName}' may not use the expected process '${effectiveProcessTypeId}'. Proceeding anyway.`
                     );
                 }
             }

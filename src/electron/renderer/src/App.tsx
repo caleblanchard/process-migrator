@@ -22,25 +22,27 @@ type Page = 'setup' | 'preview' | 'project' | 'workitems' | 'migrate' | 'history
 
 export function App() {
   const [currentPage, setCurrentPage] = useState<Page>('setup');
-  const { sourceProcess } = useMigrationStore();
+  const { source, target, sourceProcess } = useMigrationStore();
+
+  const isConnected = source.isConnected && target.isConnected;
 
   const navItems = [
     { id: 'setup' as Page, label: 'Setup', icon: <Settings24Regular /> },
     { id: 'preview' as Page, label: 'Preview', icon: <Eye24Regular />, disabled: !sourceProcess },
-    { id: 'project' as Page, label: 'Project', icon: <Folder24Regular />, disabled: !sourceProcess },
-    { id: 'workitems' as Page, label: 'Work Items', icon: <TagMultiple24Regular />, disabled: !sourceProcess },
-    { id: 'migrate' as Page, label: 'Migrate', icon: <ArrowSync24Regular />, disabled: !sourceProcess },
+    { id: 'project' as Page, label: 'Project', icon: <Folder24Regular />, disabled: !isConnected },
+    { id: 'workitems' as Page, label: 'Work Items', icon: <TagMultiple24Regular />, disabled: !isConnected },
+    { id: 'migrate' as Page, label: 'Migrate', icon: <ArrowSync24Regular />, disabled: !isConnected },
     { id: 'history' as Page, label: 'History', icon: <History24Regular /> },
   ];
 
   const renderPage = () => {
     switch (currentPage) {
       case 'setup':
-        return <SetupPage onNext={() => setCurrentPage('preview')} />;
+        return <SetupPage onNext={() => setCurrentPage('preview')} onSkipToProject={() => setCurrentPage('project')} />;
       case 'preview':
         return <PreviewPage onNext={() => setCurrentPage('project')} onBack={() => setCurrentPage('setup')} />;
       case 'project':
-        return <ProjectPage onNext={() => setCurrentPage('workitems')} onBack={() => setCurrentPage('preview')} />;
+        return <ProjectPage onNext={() => setCurrentPage('workitems')} onBack={() => sourceProcess ? setCurrentPage('preview') : setCurrentPage('setup')} />;
       case 'workitems':
         return <WorkItemsPage onNext={() => setCurrentPage('migrate')} onBack={() => setCurrentPage('project')} />;
       case 'migrate':
@@ -61,7 +63,17 @@ export function App() {
           <p>Azure DevOps</p>
         </div>
         {navItems.map((item) => (
-          <Tooltip content={item.disabled ? 'Complete setup first' : item.label} relationship="label" key={item.id}>
+          <Tooltip
+            content={
+              item.disabled
+                ? item.id === 'preview'
+                  ? 'Select a source process first'
+                  : 'Connect source and target accounts first'
+                : item.label
+            }
+            relationship="label"
+            key={item.id}
+          >
             <div
               className={`nav-item ${currentPage === item.id ? 'active' : ''} ${item.disabled ? 'disabled' : ''}`}
               onClick={() => !item.disabled && setCurrentPage(item.id)}

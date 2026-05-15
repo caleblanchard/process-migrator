@@ -21,8 +21,10 @@ interface ProjectPageProps {
 export function ProjectPage({ onNext, onBack }: ProjectPageProps) {
   const {
     source, target, sourceProcess,
+    targetProcesses,
     sourceProjectName, setSourceProjectName,
     targetProjectName, setTargetProjectName,
+    targetProcessTypeId, setTargetProcessTypeId,
     project, setProject,
   } = useMigrationStore();
 
@@ -57,7 +59,11 @@ export function ProjectPage({ onNext, onBack }: ProjectPageProps) {
 
   const canProceed = (() => {
     if (project.action === 'none') { return true; }
-    if (project.action === 'create') { return !!targetProjectName; }
+    if (project.action === 'create') {
+      // If no process migration happened, user must pick a target process
+      if (!sourceProcess && !targetProcessTypeId) { return false; }
+      return !!targetProjectName;
+    }
     if (project.action === 'useExisting') { return !!targetProjectName; }
     return false;
   })();
@@ -129,11 +135,25 @@ export function ProjectPage({ onNext, onBack }: ProjectPageProps) {
                 placeholder="Project description"
               />
             </Field>
+            {/* When no process migration: pick an existing target process */}
+            {!sourceProcess && (
+              <Field label="Process template" required hint="Select the existing process on the target org to use for this project">
+                <Dropdown
+                  placeholder="Select a process template..."
+                  value={targetProcesses.find(p => p.id === targetProcessTypeId)?.name || ''}
+                  onOptionSelect={(_e, data) => setTargetProcessTypeId(data.optionValue as string)}
+                >
+                  {targetProcesses.map(p => (
+                    <Option key={p.id} value={p.id}>{p.name}</Option>
+                  ))}
+                </Dropdown>
+              </Field>
+            )}
             <MessageBar intent="info">
               <MessageBarBody>
-                The project will be created automatically during the migration step, after the
-                process template has been imported to the target org. It will use the imported
-                process template.
+                {sourceProcess
+                  ? 'The project will be created automatically during the migration step, after the process template has been imported to the target org.'
+                  : 'The project will be created using the selected process template during the migration step.'}
               </MessageBarBody>
             </MessageBar>
           </div>

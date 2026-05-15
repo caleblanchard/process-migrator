@@ -43,6 +43,8 @@ export interface IConfigurationFile {
     sourceProjectName?: string;
     /** Required for work item import / project creation */
     targetProjectName?: string;
+    /** When skipping process migration, the typeId of an existing target process to use for project creation */
+    targetProcessTypeId?: string;
     /** Controls target project creation/selection */
     project?: IProjectOptions;
     /** Controls work item migration */

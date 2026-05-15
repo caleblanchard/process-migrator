@@ -43,6 +43,7 @@ declare global {
 
 interface SetupPageProps {
   onNext: () => void;
+  onSkipToProject: () => void;
 }
 
 interface Profile {
@@ -54,7 +55,7 @@ interface Profile {
   targetToken: string;
 }
 
-export function SetupPage({ onNext }: SetupPageProps) {
+export function SetupPage({ onNext, onSkipToProject }: SetupPageProps) {
   const {
     source, target, setSource, setTarget,
     sourceProcesses, setSourceProcesses,
@@ -207,6 +208,8 @@ export function SetupPage({ onNext }: SetupPageProps) {
   const canProceed = mode === 'import' 
     ? target.isConnected && importFilePath  // Import needs target connection and file
     : source.isConnected && sourceProcess && (mode === 'export' || target.isConnected);
+
+  const canSkipToProject = source.isConnected && target.isConnected;
 
   return (
     <div>
@@ -403,7 +406,16 @@ export function SetupPage({ onNext }: SetupPageProps) {
       )}
 
       {/* Next Button */}
-      <div className="button-row" style={{ justifyContent: 'flex-end' }}>
+      <div className="button-row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+        {canSkipToProject && !canProceed && (
+          <Button
+            appearance="secondary"
+            size="large"
+            onClick={onSkipToProject}
+          >
+            Skip Process Migration →
+          </Button>
+        )}
         <Button
           appearance="primary"
           size="large"
