@@ -43,6 +43,7 @@ export interface WorkItemOptions {
   snapshotFilename?: string;
   maxItems?: number;
   includeRelations?: boolean;
+  migrateQueries?: boolean;
   includeWorkItemTypes?: string[];
   excludeWorkItemTypes?: string[];
 }
@@ -113,7 +114,7 @@ const initialState = {
   targetProjectName: '',
   targetProcessTypeId: '',
   project: { action: 'none' as const },
-  workItems: { mode: 'disabled' as const, includeRelations: true },
+  workItems: { mode: 'disabled' as const, includeRelations: true, migrateQueries: true },
   mode: 'migrate' as const,
   options: {
     overwritePicklist: false,

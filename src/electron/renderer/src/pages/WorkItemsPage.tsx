@@ -200,6 +200,12 @@ export function WorkItemsPage({ onNext, onBack }: WorkItemsPageProps) {
                 label="Include work item links (parent/child, related, dependencies)"
               />
 
+              <Checkbox
+                checked={workItems.migrateQueries !== false}
+                onChange={(_, d) => setWorkItems({ migrateQueries: !!d.checked })}
+                label="Migrate shared queries (copy Shared Queries folder to target project)"
+              />
+
               <Field label="Limit items (leave empty for all)">
                 <Input
                   type="number"

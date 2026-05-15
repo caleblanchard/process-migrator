@@ -10,6 +10,7 @@ import { WorkItemExportService } from "./services/WorkItemExportService";
 import { ClassificationNodeService } from "./services/ClassificationNodeService";
 import { WorkItemImportService } from "./services/WorkItemImportService";
 import { LinkReplayService } from "./services/LinkReplayService";
+import { QueryMigrationService } from "./services/QueryMigrationService";
 import { defaultEncoding } from "./Constants";
 
 const DEFAULT_SNAPSHOT_FILENAME = "output/workitems.json";
@@ -20,6 +21,7 @@ export class WorkItemOrchestrator {
     private _classifyService: ClassificationNodeService;
     private _importService: WorkItemImportService;
     private _linkService: LinkReplayService;
+    private _queryService: QueryMigrationService;
 
     constructor(
         private _sourceClients: IRestClients,
@@ -31,6 +33,7 @@ export class WorkItemOrchestrator {
         this._classifyService = new ClassificationNodeService(_targetClients);
         this._importService = new WorkItemImportService(_targetClients);
         this._linkService = new LinkReplayService(_targetClients);
+        this._queryService = new QueryMigrationService(_sourceClients, _targetClients);
     }
 
     public async run(importedProcessTypeId?: string): Promise<void> {
@@ -134,7 +137,16 @@ export class WorkItemOrchestrator {
         }
 
         // -----------------------------------------------------------------------
-        // 7. Summary
+        // 7. Migrate shared queries
+        // -----------------------------------------------------------------------
+        const shouldMigrateQueries = wiOptions.migrateQueries !== false; // default true
+        if (shouldMigrateQueries && this._config.sourceProjectName && targetProjectName) {
+            logger.logInfo("=== Query Migration ===");
+            await this._queryService.migrate(this._config.sourceProjectName, targetProjectName);
+        }
+
+        // -----------------------------------------------------------------------
+        // 8. Summary
         // -----------------------------------------------------------------------
         logger.logInfo("=== Work Item Migration Summary ===");
         logger.logInfo(`  Created: ${importResult.created}`);

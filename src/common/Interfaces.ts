@@ -176,6 +176,7 @@ export interface IWorkItemOptions {
     snapshotFilename?: string;         // default: "output/workitems.json"
     maxItems?: number;                 // no limit if omitted
     includeRelations?: boolean;        // default: true
+    migrateQueries?: boolean;          // default: true — copy Shared Queries to target
     includeWorkItemTypes?: string[];   // if set, only these WIT ref names
     excludeWorkItemTypes?: string[];   // if set, skip these WIT ref names
 }
