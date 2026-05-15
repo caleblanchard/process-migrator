@@ -44,6 +44,8 @@ export interface WorkItemOptions {
   maxItems?: number;
   includeRelations?: boolean;
   migrateQueries?: boolean;
+  migrateTeams?: boolean;
+  migrateDashboards?: boolean;
   includeWorkItemTypes?: string[];
   excludeWorkItemTypes?: string[];
 }
@@ -114,7 +116,7 @@ const initialState = {
   targetProjectName: '',
   targetProcessTypeId: '',
   project: { action: 'none' as const },
-  workItems: { mode: 'disabled' as const, includeRelations: true, migrateQueries: true },
+  workItems: { mode: 'disabled' as const, includeRelations: true, migrateQueries: true, migrateTeams: true, migrateDashboards: true },
   mode: 'migrate' as const,
   options: {
     overwritePicklist: false,

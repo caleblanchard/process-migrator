@@ -44,6 +44,8 @@ export class NodeJsUtility extends Utility {
                 "witProcessApi": await vstsWebApi.getWorkItemTrackingProcessApi(),
                 "witProcessDefinitionApi": await vstsWebApi.getWorkItemTrackingProcessDefinitionApi(),
                 "coreApi": await vstsWebApi.getCoreApi(),
+                "workApi": await vstsWebApi.getWorkApi(),
+                "dashboardApi": await vstsWebApi.getDashboardApi(),
             }
         }
         catch (error) {

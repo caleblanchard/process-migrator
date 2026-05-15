@@ -1,8 +1,6 @@
 import { readFileSync, writeFileSync } from "fs";
 import { normalize } from "path";
-import {
-    IRestClients, IConfigurationFile, IMigrationReport, WorkItemSnapshot, IWorkItemOptions,
-} from "./Interfaces";
+import { IRestClients, IConfigurationFile, IMigrationReport, WorkItemSnapshot, IWorkItemOptions } from "./Interfaces";
 import { Engine } from "./Engine";
 import { logger } from "./Logger";
 import { ProjectService } from "./services/ProjectService";
@@ -11,6 +9,8 @@ import { ClassificationNodeService } from "./services/ClassificationNodeService"
 import { WorkItemImportService } from "./services/WorkItemImportService";
 import { LinkReplayService } from "./services/LinkReplayService";
 import { QueryMigrationService } from "./services/QueryMigrationService";
+import { TeamMigrationService, ITeamMigrationClients } from "./services/TeamMigrationService";
+import { DashboardMigrationService } from "./services/DashboardMigrationService";
 import { defaultEncoding } from "./Constants";
 
 const DEFAULT_SNAPSHOT_FILENAME = "output/workitems.json";
@@ -146,7 +146,57 @@ export class WorkItemOrchestrator {
         }
 
         // -----------------------------------------------------------------------
-        // 8. Summary
+        // 8. Migrate teams (settings, area assignments, iterations, boards)
+        // -----------------------------------------------------------------------
+        const shouldMigrateTeams = wiOptions.migrateTeams !== false; // default true
+        if (shouldMigrateTeams && this._config.sourceProjectName && targetProjectName) {
+            logger.logInfo("=== Team Migration ===");
+            const teamClients = this._buildTeamClients();
+            if (teamClients) {
+                const teamService = new TeamMigrationService(teamClients);
+                const teamResult = await teamService.migrate(this._config.sourceProjectName, targetProjectName);
+                logger.logInfo(`Team migration: ${teamResult.teamsCreated} team(s) created, ${teamResult.boardsConfigured} board(s) configured, ${teamResult.iterationNodesWithDates} sprint date(s) applied.`);
+            } else {
+                logger.logWarning("workApi or coreApi not available — skipping team migration. Ensure you are using the latest client build.");
+            }
+        }
+
+        // -----------------------------------------------------------------------
+        // 9. Migrate dashboards (structure only)
+        // -----------------------------------------------------------------------
+        const shouldMigrateDashboards = wiOptions.migrateDashboards !== false; // default true
+        if (shouldMigrateDashboards && this._config.sourceProjectName && targetProjectName) {
+            logger.logInfo("=== Dashboard Migration ===");
+            if (this._sourceClients.dashboardApi && this._targetClients.dashboardApi) {
+                const dashService = new DashboardMigrationService(
+                    this._sourceClients.dashboardApi,
+                    this._targetClients.dashboardApi,
+                );
+                // Migrate dashboards for each project-level team (use project name as team name for default team)
+                let totalDash = 0, totalFailed = 0;
+                if (this._sourceClients.coreApi && this._config.sourceProjectName) {
+                    const sourceTeams = await this._sourceClients.coreApi.getTeams(this._config.sourceProjectName, false, 200).catch(() => []);
+                    for (const team of sourceTeams) {
+                        if (!team.name) { continue; }
+                        const dashResult = await dashService.migrate(
+                            this._config.sourceProjectName, targetProjectName,
+                            team.name, team.name,
+                        );
+                        totalDash += dashResult.dashboardsCreated;
+                        totalFailed += dashResult.failed;
+                    }
+                }
+                logger.logInfo(`Dashboard migration: ${totalDash} dashboard(s) created, ${totalFailed} failed.`);
+                if (totalDash > 0) {
+                    logger.logWarning("Dashboard widgets may reference project-specific IDs (queries, area paths). Review and reconfigure widgets in the target project.");
+                }
+            } else {
+                logger.logWarning("dashboardApi not available — skipping dashboard migration. Ensure you are using the latest client build.");
+            }
+        }
+
+        // -----------------------------------------------------------------------
+        // 10. Summary
         // -----------------------------------------------------------------------
         logger.logInfo("=== Work Item Migration Summary ===");
         logger.logInfo(`  Created: ${importResult.created}`);
@@ -159,6 +209,21 @@ export class WorkItemOrchestrator {
     // ---------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------
+
+    private _buildTeamClients(): ITeamMigrationClients | null {
+        if (!this._sourceClients.workApi || !this._targetClients.workApi ||
+            !this._sourceClients.coreApi || !this._targetClients.coreApi) {
+            return null;
+        }
+        return {
+            sourceWork: this._sourceClients.workApi,
+            sourceCore: this._sourceClients.coreApi,
+            sourceWit: this._sourceClients.witApi,
+            targetWork: this._targetClients.workApi,
+            targetCore: this._targetClients.coreApi,
+            targetWit: this._targetClients.witApi,
+        };
+    }
 
     private async _resolveTargetProject(
         action: "none" | "create" | "useExisting",

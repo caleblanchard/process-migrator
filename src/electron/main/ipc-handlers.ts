@@ -84,6 +84,8 @@ async function getRestClients(url: string, token: string) {
         witProcessApi: await connection.getWorkItemTrackingProcessApi(),
         witProcessDefinitionApi: await connection.getWorkItemTrackingProcessDefinitionApi(),
         coreApi: await connection.getCoreApi(),
+        workApi: await connection.getWorkApi(),
+        dashboardApi: await connection.getDashboardApi(),
     };
 }
 

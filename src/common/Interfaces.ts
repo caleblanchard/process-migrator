@@ -5,6 +5,8 @@ import { IWorkItemTrackingProcessDefinitionsApi as WITProcessDefinitionApi } fro
 import { IWorkItemTrackingProcessApi as WITProcessApi } from "azure-devops-node-api/WorkItemTrackingProcessApi";
 import { IWorkItemTrackingApi as WITApi } from "azure-devops-node-api/WorkItemTrackingApi";
 import { ICoreApi } from "azure-devops-node-api/CoreApi";
+import { IWorkApi } from "azure-devops-node-api/WorkApi";
+import { IDashboardApi } from "azure-devops-node-api/DashboardApi";
 
 export enum LogLevel {
     error,
@@ -143,6 +145,8 @@ export interface IRestClients {
     witProcessApi: WITProcessApi;
     witProcessDefinitionApi: WITProcessDefinitionApi;
     coreApi?: ICoreApi;
+    workApi?: IWorkApi;
+    dashboardApi?: IDashboardApi;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,6 +181,8 @@ export interface IWorkItemOptions {
     maxItems?: number;                 // no limit if omitted
     includeRelations?: boolean;        // default: true
     migrateQueries?: boolean;          // default: true — copy Shared Queries to target
+    migrateTeams?: boolean;            // default: true — copy teams, settings, iterations, boards
+    migrateDashboards?: boolean;       // default: true — copy dashboard structure per team
     includeWorkItemTypes?: string[];   // if set, only these WIT ref names
     excludeWorkItemTypes?: string[];   // if set, skip these WIT ref names
 }

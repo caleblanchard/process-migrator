@@ -206,6 +206,18 @@ export function WorkItemsPage({ onNext, onBack }: WorkItemsPageProps) {
                 label="Migrate shared queries (copy Shared Queries folder to target project)"
               />
 
+              <Checkbox
+                checked={workItems.migrateTeams !== false}
+                onChange={(_, d) => setWorkItems({ migrateTeams: !!d.checked })}
+                label="Migrate teams (copy teams, settings, area assignments, iterations, board columns, and swimlanes)"
+              />
+
+              <Checkbox
+                checked={workItems.migrateDashboards !== false}
+                onChange={(_, d) => setWorkItems({ migrateDashboards: !!d.checked })}
+                label="Migrate dashboards (copy dashboard structure — widget settings may need manual reconfiguration)"
+              />
+
               <Field label="Limit items (leave empty for all)">
                 <Input
                   type="number"
