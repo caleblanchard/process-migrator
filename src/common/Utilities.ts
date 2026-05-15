@@ -181,7 +181,9 @@ export class Utility {
                 logger.logError(`[Configuration validation] Missing personal access token for source account.`);
                 return false;
             }
-            if (!configuration.sourceProcessName) {
+            // sourceProcessName is not required when skipping process migration
+            // (targetProcessTypeId is provided directly instead)
+            if (!configuration.sourceProcessName && !configuration.targetProcessTypeId) {
                 logger.logError(`[Configuration validation] Missing source process name.`);
                 return false;
             }
