@@ -12,6 +12,9 @@ const IDENTITY_FIELDS = new Set<string>([
     "Microsoft.VSTS.Common.ResolvedBy",
 ]);
 
+/** Fields whose values are project-scoped paths */
+const PATH_FIELDS = new Set<string>(["System.AreaPath", "System.IterationPath"]);
+
 export class WorkItemImportService {
     constructor(private _clients: IRestClients) {}
 
@@ -60,6 +63,20 @@ export class WorkItemImportService {
                         failed++;
                     }
                 } catch (err: any) {
+                    // If the error is an area/iteration path problem, retry with root paths
+                    if (this._isPathError(err?.message)) {
+                        const retryResult = await this._retryWithRootPaths(
+                            record, targetProjectName, snapshot.sourceProjectName, fieldErrors
+                        );
+                        if (retryResult !== null) {
+                            idMap.set(record.id, retryResult);
+                            created++;
+                            logger.logWarning(
+                                `Work item ${record.id} created with root area/iteration path (original path was invalid): ${err?.message}`
+                            );
+                            continue;
+                        }
+                    }
                     const msg = `Failed to create work item ${record.id} (${record.workItemType}): ${err?.message}`;
                     logger.logWarning(msg);
                     fieldErrors.push(msg);
@@ -70,6 +87,40 @@ export class WorkItemImportService {
 
         logger.logInfo(`Import complete: ${created} created, ${failed} failed.`);
         return { created, failed, idMap, fieldErrors };
+    }
+
+    /** Returns the new work item ID on success, null on failure */
+    private async _retryWithRootPaths(
+        record: { id: number; workItemType: string; fields: Record<string, any>; relations: any[] },
+        targetProjectName: string,
+        sourceProjectName: string,
+        fieldErrors: string[]
+    ): Promise<number | null> {
+        try {
+            const fieldsWithRootPaths = {
+                ...record.fields,
+                "System.AreaPath": targetProjectName,
+                "System.IterationPath": targetProjectName,
+            };
+            const patch = this._buildPatchDocument(fieldsWithRootPaths, record.workItemType, targetProjectName, sourceProjectName, fieldErrors);
+            const wi = await this._clients.witApi.createWorkItem(
+                null,
+                patch,
+                targetProjectName,
+                record.workItemType
+            );
+            return wi?.id ?? null;
+        } catch {
+            return null;
+        }
+    }
+
+    private _isPathError(message?: string): boolean {
+        if (!message) { return false; }
+        return message.includes("TF401347") ||
+            message.toLowerCase().includes("invalid tree name") ||
+            message.toLowerCase().includes("areapath") ||
+            message.toLowerCase().includes("iterationpath");
     }
 
     private _buildPatchDocument(
@@ -89,7 +140,7 @@ export class WorkItemImportService {
             if (value === undefined || value === null) { continue; }
 
             // Remap project-scoped path fields
-            if (key === "System.AreaPath" || key === "System.IterationPath") {
+            if (PATH_FIELDS.has(key)) {
                 const remapped = this._remapProjectPath(String(value), sourceProjectName, targetProjectName);
                 addField(key, remapped);
                 continue;
@@ -113,12 +164,16 @@ export class WorkItemImportService {
     }
 
     private _remapProjectPath(path: string, sourceProject: string, targetProject: string): string {
+        if (!path) { return targetProject; }
         if (path.toLowerCase().startsWith(sourceProject.toLowerCase() + "\\")) {
             return targetProject + path.slice(sourceProject.length);
         }
         if (path.toLowerCase() === sourceProject.toLowerCase()) {
             return targetProject;
         }
-        return path;
+        // Path doesn't start with source project — return with target project prepended
+        // (handles edge cases where the stored path doesn't match the expected project prefix)
+        logger.logVerbose(`AreaPath/IterationPath '${path}' does not start with source project '${sourceProject}'; using target project root.`);
+        return targetProject;
     }
 }
