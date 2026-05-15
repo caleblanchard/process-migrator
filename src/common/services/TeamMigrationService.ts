@@ -439,26 +439,68 @@ export class TeamMigrationService {
         targetBoardId: string,
     ): Promise<void> {
         let sourceCols: WorkInterfaces.BoardColumn[];
+        let targetCols: WorkInterfaces.BoardColumn[];
         try {
-            sourceCols = await this._clients.sourceWork.getBoardColumns(sourceCtx, sourceBoardId);
+            [sourceCols, targetCols] = await Promise.all([
+                this._clients.sourceWork.getBoardColumns(sourceCtx, sourceBoardId),
+                this._clients.targetWork.getBoardColumns(targetCtx, targetBoardId),
+            ]);
         } catch (err: any) {
             logger.logVerbose(`Could not read columns for board '${sourceBoardId}': ${err?.message}`);
             return;
         }
 
-        if (!sourceCols?.length) { return; }
+        if (!sourceCols?.length || !targetCols?.length) { return; }
 
-        // Strip IDs from the columns so ADO treats them as new definitions
-        const targetCols: WorkInterfaces.BoardColumn[] = sourceCols.map(c => ({
-            name: c.name,
-            columnType: c.columnType,
-            isSplit: c.isSplit,
-            itemLimit: c.itemLimit,
-            stateMappings: c.stateMappings,
-        }));
+        // ADO requires Incoming (first) and Outgoing (last) boundary columns to keep their
+        // existing IDs — attempting to delete/recreate them causes "You cannot delete and
+        // recreate incoming column". We preserve those IDs and only replace the InProgress
+        // (middle) columns from the source.
+        const targetIncoming = targetCols.find(c => c.columnType === WorkInterfaces.BoardColumnType.Incoming);
+        const targetOutgoing = targetCols.find(c => c.columnType === WorkInterfaces.BoardColumnType.Outgoing);
+        const sourceIncoming = sourceCols.find(c => c.columnType === WorkInterfaces.BoardColumnType.Incoming);
+        const sourceOutgoing = sourceCols.find(c => c.columnType === WorkInterfaces.BoardColumnType.Outgoing);
+        const sourceInProgress = sourceCols.filter(c => c.columnType === WorkInterfaces.BoardColumnType.InProgress);
+
+        const mergedCols: WorkInterfaces.BoardColumn[] = [];
+
+        // Incoming: keep target ID, copy source settings
+        if (targetIncoming) {
+            mergedCols.push({
+                id: targetIncoming.id,
+                name: sourceIncoming?.name ?? targetIncoming.name,
+                columnType: WorkInterfaces.BoardColumnType.Incoming,
+                isSplit: sourceIncoming?.isSplit ?? targetIncoming.isSplit,
+                itemLimit: sourceIncoming?.itemLimit ?? targetIncoming.itemLimit,
+                stateMappings: sourceIncoming?.stateMappings ?? targetIncoming.stateMappings,
+            });
+        }
+
+        // InProgress: new columns from source (no ID needed — ADO assigns new ones)
+        for (const col of sourceInProgress) {
+            mergedCols.push({
+                name: col.name,
+                columnType: WorkInterfaces.BoardColumnType.InProgress,
+                isSplit: col.isSplit,
+                itemLimit: col.itemLimit,
+                stateMappings: col.stateMappings,
+            });
+        }
+
+        // Outgoing: keep target ID, copy source settings
+        if (targetOutgoing) {
+            mergedCols.push({
+                id: targetOutgoing.id,
+                name: sourceOutgoing?.name ?? targetOutgoing.name,
+                columnType: WorkInterfaces.BoardColumnType.Outgoing,
+                isSplit: sourceOutgoing?.isSplit ?? targetOutgoing.isSplit,
+                itemLimit: sourceOutgoing?.itemLimit ?? targetOutgoing.itemLimit,
+                stateMappings: sourceOutgoing?.stateMappings ?? targetOutgoing.stateMappings,
+            });
+        }
 
         try {
-            await this._clients.targetWork.updateBoardColumns(targetCols, targetCtx, targetBoardId);
+            await this._clients.targetWork.updateBoardColumns(mergedCols, targetCtx, targetBoardId);
             logger.logVerbose(`Updated columns for board '${targetBoardId}'.`);
         } catch (err: any) {
             logger.logVerbose(`Could not update columns for board '${targetBoardId}': ${err?.message}`);
