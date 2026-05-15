@@ -25,6 +25,21 @@ A desktop application is available with a graphical user interface for easier us
 2. Build the CLI first: `npm run build`
 3. Start the desktop app in development mode: `npm run dev`
 
+> **Tip:** `npm run dev` uses Vite's hot-reload for the UI, so most renderer changes are visible instantly. If you don't see your changes, do a full rebuild (see below).
+
+### Rebuilding After Code Changes
+
+Run only the parts that changed. Each command is independent:
+
+| What changed | Command to run |
+|---|---|
+| `src/common/**` or `src/nodejs/**` (CLI/backend) | `npm run build` |
+| `src/electron/main/**` (Electron main process) | `npm run build:electron-main` |
+| `src/electron/renderer/src/**` (UI) | `npm run build:electron-renderer` |
+| Everything (full rebuild) | `npm run build && npm run build:electron` |
+
+After rebuilding, restart the app with `npm run dev` (or relaunch the packaged `.app`/`.exe` if using a distribution build).
+
 ### Building Executables
 
 To build standalone executables for distribution:
