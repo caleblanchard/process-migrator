@@ -202,7 +202,8 @@ export class TeamMigrationService {
         if (!node || typeof node.name !== "string") { return; }
         const isRoot = node.name === projectName;
         const fullPath = isRoot ? "" : (prefix ? `${prefix}\\${node.name}` : node.name);
-        if (!isRoot && node.identifier) {
+        // Store all nodes including root (root stored with key "")
+        if (node.identifier) {
             map.set(fullPath.toLowerCase(), node.identifier);
         }
         for (const child of node.children ?? []) {
@@ -232,7 +233,7 @@ export class TeamMigrationService {
         };
 
         await Promise.allSettled([
-            this._copyTeamSettings(sourceCtx, targetCtx),
+            this._copyTeamSettings(sourceCtx, targetCtx, sourceProjectName, targetProjectName, targetIterGuidMap),
             this._copyTeamAreaAssignments(sourceCtx, targetCtx, sourceProjectName, targetProjectName),
         ]);
 
@@ -250,6 +251,9 @@ export class TeamMigrationService {
     private async _copyTeamSettings(
         sourceCtx: CoreInterfaces.TeamContext,
         targetCtx: CoreInterfaces.TeamContext,
+        sourceProjectName: string,
+        targetProjectName: string,
+        targetIterGuidMap: Map<string, string>,
     ): Promise<void> {
         let settings: WorkInterfaces.TeamSetting;
         try {
@@ -259,11 +263,32 @@ export class TeamMigrationService {
             return;
         }
 
+        // Map the source team's backlogIteration to the corresponding target GUID.
+        // A new team has no valid backlogIteration by default which causes TF400497
+        // on all subsequent iteration/board operations.
+        let targetBacklogIterationId: string | undefined;
+        const srcBacklogPath = settings.backlogIteration?.path;
+        if (srcBacklogPath) {
+            let relPath = srcBacklogPath.startsWith("\\") ? srcBacklogPath.slice(1) : srcBacklogPath;
+            // Strip source project prefix to get relative path (or empty string for project root)
+            if (relPath.toLowerCase().startsWith(sourceProjectName.toLowerCase() + "\\")) {
+                relPath = relPath.slice(sourceProjectName.length + 1);
+            } else if (relPath.toLowerCase() === sourceProjectName.toLowerCase()) {
+                relPath = "";
+            }
+            targetBacklogIterationId = targetIterGuidMap.get(relPath.toLowerCase());
+        }
+        // Fall back to target project root iteration if we couldn't map the source path
+        if (!targetBacklogIterationId) {
+            targetBacklogIterationId = targetIterGuidMap.get("");
+        }
+
         try {
             const patch: WorkInterfaces.TeamSettingsPatch = {
                 bugsBehavior: settings.bugsBehavior,
                 workingDays: settings.workingDays,
                 backlogVisibilities: settings.backlogVisibilities,
+                ...(targetBacklogIterationId ? { backlogIteration: targetBacklogIterationId } : {}),
             };
             await this._clients.targetWork.updateTeamSettings(patch, targetCtx);
             logger.logVerbose(`Updated settings for team '${targetCtx.team}'.`);
